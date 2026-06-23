@@ -1,7 +1,8 @@
-panel
-earthengine-api
+dash
 pandas
 numpy
+earthengine-api
 scikit-learn
 joblib
-folium
+gunicorn
+

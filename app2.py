@@ -1,19 +1,21 @@
-import panel as pn
+import dash
+from dash import dcc, html, Input, Output, State
 import pandas as pd
 import numpy as np
 import ee
 import joblib
-import folium
+import plotly.graph_objects as go
 import os
 
-# Inicializar la extensión de Panel con soporte para Folium/Leaflet
-pn.extension('folium', sizing_mode="stretch_width")
+# Inicializar la aplicación Dash
+app = dash.Dash(__name__, title="SAT - Predicción El Coyolar")
+server = app.server  # Expone el servidor Flask para que Koyeb pueda ejecutarlo
 
 # ==============================================================================
 # 1. AUTENTICACIÓN DINÁMICA MEDIANTE VARIABLE DE ENTORNO (TOKEN PERSISTENTE)
 # ==============================================================================
 def inicializar_servicios():
-    # Hugging Face lee los Secrets directamente como variables de entorno del sistema (os.environ)
+    # Koyeb lee los Secrets directamente como variables de entorno (os.environ)
     token_secure = os.environ.get("EE_TOKEN")
     modelo = joblib.load("modelo_sequia_futuro.pkl")
     
@@ -23,15 +25,13 @@ def inicializar_servicios():
             client_id=oauth.CLIENT_ID, client_secret=oauth.CLIENT_SECRET, refresh_token=token_secure
         ))
     else:
-        ee.Initialize() # Fallback para desarrollo local
+        ee.Initialize() # Fallback local
         
     return modelo
 
 modelo_rf = inicializar_servicios()
 
-# ==============================================================================
-# 2. FUNCIONES DE EXTRACCIÓN SATELITAL (HYDROATLAS Y JRC)
-# ==============================================================================
+# Coordenadas e inicialización geográfica de la subcuenca (HydroATLAS)
 lon_coyolar, lat_coyolar = -87.50904715160283, 14.333509533380646
 cuencas = ee.FeatureCollection('WWF/HydroATLAS/v1/Basins/level12')
 roi_subcuenca = cuencas.filterBounds(ee.Geometry.Point([lon_coyolar, lat_coyolar])).geometry()
@@ -63,58 +63,98 @@ def consultar_satelites_actuales():
     }])
 
 # ==============================================================================
-# 3. LÓGICA REACTIVA DEL PANEL INTERACTIVO
+# 2. DISEÑO DE LA INTERFAZ VISUAL (VIEW - HTML/CSS COMPONENTES)
 # ==============================================================================
-# Contenedores visuales vacíos (Placeholders) que Panel actualizará dinámicamente
-html_alertas = pn.pane.HTML(width=800)
-mapa_pane = pn.pane.Folium(width=1000, height=500)
+app.layout = html.Div(style={'fontFamily': 'Arial, sans-serif', 'padding': '20px'}, children=[
+    html.H1("💧 SAT - Alerta Temprana de Sequías Fluviales", style={'color': '#1a365d'}),
+    html.H3("Dashboard Científico de Control Hidroambiental - Represa El Coyolar, Honduras", style={'color': '#4a5568'}),
+    
+    html.Div(style={'display': 'flex', 'gap': '20px', 'marginBottom': '25px'}, children=[
+        html.Button("🔄 Interrogar Satélites y Predecir", id="btn-predict", n_clicks=0, 
+                    style={'padding': '12px 24px', 'backgroundColor': '#3182ce', 'color': 'white', 'border': 'none', 'borderRadius': '5px', 'cursor': 'pointer', 'fontSize': '16px'}),
+        html.Div(id="output-alerta", style={'flex': '1'})
+    ]),
+    
+    html.Hr(),
+    
+    html.Div(children=[
+        dcc.Graph(id="mapa-plotly", style={'height': '600px'})
+    ])
+])
 
-def ejecutar_pipeline_evento(event):
-    html_alertas.object = "<div style='color: orange;'>🔄 Analizando firmas espectrales en la nube de Google...</div>"
+# ==============================================================================
+# 3. LÓGICA DE CONTROL (CONTROLLER - CALLBACK REACTIVO)
+# ==============================================================================
+@app.callback(
+    [Output("output-alerta", "children"),
+     Output("mapa-plotly", "figure")],
+    [Input("btn-predict", "n_clicks")],
+    prevent_initial_call=True
+)
+def ejecutar_prediccion_y_mapeo(n_clicks):
+    # Mensaje de carga inicial si el botón no ha hecho procesamiento profundo
+    if n_clicks == 0:
+        return dash.no_update, dash.no_update
+        
     try:
+        # Extraer variables climáticas y aplicar el modelo
         df_actual = consultar_satelites_actuales()
         df_actual['SPI_3'] = (df_actual['Lluvia_mm'] - 85.4) / 42.1
         X_actual = df_actual[['NDVI', 'NDWI_agua', 'NDWI_veg', 'LST', 'SPI_3']]
         
-        prediccion = int(modelo_rf.predict(X_actual)[0])
-        dicc_colores = {0: ("Bajo (Sin Sequía)", "green"), 1: ("Leve", "yellow"), 2: ("Moderado", "orange"), 3: ("Severo (Alerta)", "red")}
+        prediccion = int(modelo_rf.predict(X_actual))
+        dicc_colores = {0: ("Bajo (Sin Sequía)", "#28a745"), 1: ("Leve", "#ffc107"), 2: ("Moderado", "#fd7e14"), 3: ("Severo (Alerta)", "#dc3545")}
         txt_riesgo, color_riesgo = dicc_colores[prediccion]
         
-        # Actualizar la tarjeta de alerta en formato HTML limpio sin recargar la página
-        html_alertas.object = f"""
-        <div style='padding:15px; background-color:{color_riesgo}; color:white; border-radius:5px; font-weight:bold;'>
-            🔮 Predicción de Riesgo Hídrico para el próximo mes en la Subcuenca: {txt_riesgo}
-        </div>
-        """
+        # 1. Construir la tarjeta de Alerta en HTML para la vista
+        alerta_componente = html.Div(
+            f"🔮 Predicción de Riesgo Hídrico para el próximo mes en la Subcuenca: {txt_riesgo}",
+            style={'padding': '15px', 'backgroundColor': color_riesgo, 'color': 'white', 'borderRadius': '5px', 'fontWeight': 'bold', 'fontSize': '16px'}
+        )
         
-        # Renderizar el mapa dinámico nativo de GEE
-        mapa_web = folium.Map(location=[lat_coyolar, lon_coyolar], zoom_start=13, tiles="OpenStreetMap")
-        
+        # 2. Consultar la geometría oficial de la cuenca en HydroATLAS
         cuencas_altas = ee.FeatureCollection('WWF/HydroATLAS/v1/Basins/level12')
-        geom_subcuenca = cuencas_altas.filterBounds(ee.Geometry.Point([lon_coyolar, lat_coyolar])).first().geometry().getInfo()
+        geojson_subcuenca = cuencas_altas.filterBounds(ee.Geometry.Point([lon_coyolar, lat_coyolar])).first().geometry().getInfo()
         
-        folium.GeoJson(data=geom_subcuenca, style_function=lambda f: {'fillColor': color_riesgo, 'color': color_riesgo, 'weight': 2, 'fillOpacity': 0.35}).add_to(mapa_web)
+        # Extraer los puntos del polígono para graficarlos en las líneas de Plotly
+        lons = [pt[0] for pt in geojson_subcuenca['coordinates'][0]]
+        lats = [pt[1] for pt in geojson_subcuenca['coordinates'][1]] if len(geojson_subcuenca['coordinates']) > 1 else [pt[1] for pt in geojson_subcuenca['coordinates'][0]]
+        if len(geojson_subcuenca['coordinates'][0][0]) == 2: # Manejo de estructuras GeoJSON estándar
+            lons = [pt[0] for pt in geojson_subcuenca['coordinates'][0]]
+            lats = [pt[1] for pt in geojson_subcuenca['coordinates'][0]]
+
+        # 3. Renderizar el mapa de Mapbox usando componentes nativos de Plotly
+        fig = go.Figure()
         
-        # Forzar el refresco asíncrono del componente del mapa
-        mapa_pane.object = mapa_web
+        # Dibujar el contorno del polígono de HydroATLAS con el color predictivo
+        fig.add_trace(go.Scattermapbox(
+            lon=lons, lat=lats,
+            mode='lines',
+            fill='toself',
+            fillcolor=color_riesgo,
+            opacity=0.4,
+            line=dict(width=2.5, color=color_riesgo),
+            text=f"Subcuenca El Coyolar - Alerta: {txt_riesgo}",
+            hoverinfo='text'
+        ))
+        
+        fig.update_layout(
+            mapbox=dict(
+                style="open-street-map",
+                center=dict(lat=lat_coyolar, lon=lon_coyolar),
+                zoom=12
+            ),
+            margin=dict(l=0, r=0, t=0, b=0)
+        )
+        
+        return alerta_componente, fig
         
     except Exception as err:
-        html_alertas.object = f"<div style='color: red;'>❌ Error: {str(err)}</div>"
+        error_comp = html.Div(f"❌ Error en el Pipeline: {str(err)}", style={'color': 'red', 'fontWeight': 'bold'})
+        return error_comp, go.Figure()
 
-# Botón interactivo nativo de HoloViz Panel
-boton_calcular = pn.widgets.Button(name="🔄 Interrogar Satélites y Predecir", button_type="primary", width=300)
-boton_calcular.on_click(ejecutar_pipeline_evento)
-
-# ==============================================================================
-# 4. MAQUETACIÓN E INTERFAZ GRÁFICA FINAL (LAYOUT DE TESIS)
-# ==============================================================================
-dashboard = pn.Column(
-    pn.pane.Markdown("# 💧 SAT - Alerta Temprana de Sequías Fluviales"),
-    pn.pane.Markdown("### Dashboard Científico de Control Hidroambiental - Represa El Coyolar, Honduras"),
-    pn.Row(boton_calcular, html_alertas),
-    pn.layout.Divider(),
-    mapa_pane
-)
-
-# Servir la aplicación de forma pública para el servidor web
-dashboard.servable()
+# Ejecutar el servidor web cuando la nube lo invoque
+if __name__ == '__main__':
+    # El puerto lo asignará Koyeb automáticamente, se usa 8000 como fallback
+    port = int(os.environ.get("PORT", 8000))
+    app.run_server(host='0.0.0.0', port=port)
