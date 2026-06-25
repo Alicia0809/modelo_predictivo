@@ -5,4 +5,5 @@ numpy
 scikit-learn
 joblib
 folium
-streamlit-folium
+groq
+requests
