@@ -31,20 +31,24 @@ client = Groq(api_key=GROQ_API_KEY)
 # EARTH ENGINE
 # ==============================================================================
 def initialize_earth_engine():
-    if "GEE_SERVICE_ACCOUNT" in st.secrets and "GEE_PRIVATE_KEY" in st.secrets:
-        service_account = st.secrets["GEE_SERVICE_ACCOUNT"]
-        private_key = st.secrets["GEE_PRIVATE_KEY"]
 
-        # Corrige el formateo de saltos de línea generado por Streamlit Secrets
-        if isinstance(private_key, str):
-            private_key = private_key.replace("\\n", "\n")
-        elif isinstance(private_key, dict):
-            private_key = json.dumps(private_key)
+    credentials_json = json.loads(st.secrets["GEE_CREDENTIALS"])
 
-        credentials = ee.ServiceAccountCredentials(service_account, private_key)
-        ee.Initialize(credentials)
-    else:
-        ee.Initialize()
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".json",
+        delete=False
+    ) as f:
+
+        json.dump(credentials_json, f)
+        temp_file = f.name
+
+    credentials = ee.ServiceAccountCredentials(
+        credentials_json["client_email"],
+        temp_file
+    )
+
+    ee.Initialize(credentials)
 
 
 
