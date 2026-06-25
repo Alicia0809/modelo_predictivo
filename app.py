@@ -13,7 +13,6 @@ import numpy as np
 import ee
 import joblib
 import folium
-from streamlit_folium import st_folium
 from groq import Groq
 
 # =========================
