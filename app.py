@@ -35,13 +35,17 @@ def initialize_earth_engine():
         service_account = st.secrets["GEE_SERVICE_ACCOUNT"]
         private_key = st.secrets["GEE_PRIVATE_KEY"]
 
-        if isinstance(private_key, dict):
+        # Corrige el formateo de saltos de línea generado por Streamlit Secrets
+        if isinstance(private_key, str):
+            private_key = private_key.replace("\\n", "\n")
+        elif isinstance(private_key, dict):
             private_key = json.dumps(private_key)
 
         credentials = ee.ServiceAccountCredentials(service_account, private_key)
         ee.Initialize(credentials)
     else:
         ee.Initialize()
+
 
 
 @st.cache_resource
