@@ -14,6 +14,14 @@ import ee
 import joblib
 import folium
 from streamlit_folium import st_folium
+from groq import Groq
+
+# =========================
+# CONFIGURACIÓN GROQ API
+# =========================
+GROQ_API_KEY = st.secrets["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"]
+client = Groq(api_key=GROQ_API_KEY)
+
 
 # ==============================================================================
 # CONFIGURACIÓN DE LA INTERFAZ DE USUARIO (STREAMLIT)
