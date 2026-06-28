@@ -64,7 +64,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("Sistema de Alerta Temprana y Predicción de Riesgo Hídrico")
+st.title("Sistema de Predicción de Riesgo Hídrico")
 st.caption("Subcuenca Represa El Coyolar · GEE + Sentinel-2 + Landsat 8 + CHIRPS")
 
 # ==============================================================================
