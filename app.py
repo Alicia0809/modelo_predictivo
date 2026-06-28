@@ -170,8 +170,21 @@ def cargar_recursos():
     roi = _obtener_subcuenca_gee(-87.50904715160283, 14.333509533380646, nivel=12)
 
     # CSV histórico — columnas mínimas requeridas:
-    # Anio, Mes, NDVI, NDWI_agua, NDWI_veg, LST, Lluvia_mm, SPI_3
-    historical_df = pd.read_csv("variables.csv")
+    # Anio, Mes, NDVI, NDWI_agua, NDWI_veg, LST, Lluvia_mm, SPI_3, NRHF
+    #
+    # El archivo usa coma como separador decimal (formato regional español,
+    # ej: "0,7208314795"). Se lee con decimal=',' para que pandas convierta
+    # directamente a float64 sin pasos intermedios.
+    historical_df = pd.read_csv("variables.csv", decimal=",")
+
+    # Garantizar tipos correctos
+    historical_df["Anio"] = historical_df["Anio"].astype(int)
+    historical_df["Mes"]  = historical_df["Mes"].astype(int)
+
+    _COLS_NUMERICAS = ["NDVI", "NDWI_agua", "NDWI_veg", "LST", "Lluvia_mm", "SPI_3"]
+    for _c in _COLS_NUMERICAS:
+        if _c in historical_df.columns:
+            historical_df[_c] = pd.to_numeric(historical_df[_c], errors="coerce")
 
     return modelo, roi, historical_df
 
@@ -350,12 +363,33 @@ def _mes_anterior(anio: int, mes: int):
     return anio, mes - 1
 
 def _buscar_en_csv(anio: int, mes: int) -> pd.Series:
-    """Busca una fila en el CSV histórico. Lanza ValueError si no existe."""
+    """
+    Busca una fila en el CSV histórico para el mes/año exacto.
+    Si no existe (mes faltante por cobertura nubosa u otro motivo),
+    busca el mes disponible más cercano cronológicamente.
+    Lanza ValueError solo si el CSV está completamente vacío.
+    """
     fila = historical_df[(historical_df["Anio"] == anio) &
                          (historical_df["Mes"]  == mes)]
-    if fila.empty:
-        raise ValueError(f"No hay datos históricos para {mes}/{anio} en variables.csv")
-    return fila.iloc[0]
+    if not fila.empty:
+        return fila.iloc[0]
+
+    # Mes faltante: buscar el registro más cercano en tiempo
+    fecha_objetivo = anio * 12 + mes
+    historical_df["_dist"] = abs(
+        historical_df["Anio"] * 12 + historical_df["Mes"] - fecha_objetivo
+    )
+    mas_cercano = historical_df.sort_values("_dist").iloc[0]
+    historical_df.drop(columns=["_dist"], inplace=True)
+
+    a_cercano = int(mas_cercano["Anio"])
+    m_cercano = int(mas_cercano["Mes"])
+    st.warning(
+        f"⚠️ No hay datos en variables.csv para {mes}/{anio}. "
+        f"Se usará el mes más cercano disponible: {m_cercano}/{a_cercano}.",
+        icon="ℹ️"
+    )
+    return mas_cercano
 
 # ==============================================================================
 # 7. TRES FUNCIONES DE PREDICCIÓN — una por modo
@@ -803,12 +837,6 @@ if ejecutar:
             else:  # gee_futuro
                 pred, probs, datos_row = predecir_gee_futuro(anio_sel, mes_sel)
 
-        except ValueError as e:
-            # Error de datos faltantes en CSV — mensaje claro al usuario
-            st.error(f"⚠️ {e}")
-            st.info("Verifica que variables.csv contenga los datos del mes solicitado "
-                    "y de los dos meses anteriores.")
-            st.stop()
         except Exception as e:
             st.error("❌ Error durante el análisis.")
             st.exception(e)
