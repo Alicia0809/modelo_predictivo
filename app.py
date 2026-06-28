@@ -215,17 +215,19 @@ def obtener_datos_satelitales(anio: int, mes: int) -> pd.DataFrame:
     lst = l8.select('ST_B10').multiply(0.00341802).add(149.0).subtract(273.15).rename('LST')
 
     # CHIRPS — precipitación mensual total
-    lluvia = (ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
-              .filterBounds(roi_subcuenca)
-              .filterDate(inicio, fin)
-              .sum()
-              .get('precipitation'))
+    lluvia_img = (ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
+                  .filterBounds(roi_subcuenca)
+                  .filterDate(inicio, fin)
+                  .sum()
+                  .rename('precipitation'))
+    
     stats_lluvia = lluvia_img.reduceRegion(
         reducer=ee.Reducer.mean(),
         geometry=roi_subcuenca,
         scale=5000,
         maxPixels=1e9
     )
+    
     lluvia = stats_lluvia.get('precipitation')
     lluvia_val = lluvia.getInfo() if lluvia is not None else 0.0
 
