@@ -22,7 +22,6 @@ import numpy as np
 import ee
 import joblib
 import folium
-from streamlit_folium import st_folium
 import plotly.graph_objects as go
 from groq import Groq
 from scipy.stats import gamma, norm
