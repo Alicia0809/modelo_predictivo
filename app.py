@@ -454,12 +454,9 @@ def predecir_mes_siguiente(anio_siguiente: int, mes_siguiente: int) -> tuple:
     a2, m2 = _mes_anterior(a1, m1)
 
     def _obtener_lag(a: int, m: int) -> pd.Series:
-        try:
-            return _buscar_en_csv(a, m)
-        except ValueError:
-            df_tmp = obtener_datos_satelitales_gee(a, m)
-            df_tmp["SPI_3"] = calcular_spi3(float(df_tmp["Lluvia_mm"].iloc[0]), m)
-            return df_tmp.iloc[0]
+        df_tmp = obtener_datos_satelitales_gee(a, m)
+        df_tmp["SPI_3"] = calcular_spi3(float(df_tmp["Lluvia_mm"].iloc[0]), m)
+        return df_tmp.iloc[0]
 
     lag1 = _obtener_lag(a1, m1)
     lag2 = _obtener_lag(a2, m2)
@@ -492,13 +489,9 @@ def predecir_gee_futuro(anio: int, mes: int) -> tuple:
         datos_row_dict → índices del mes solicitado (entrada real del modelo)
     """
     def _obtener_fila(a: int, m: int) -> pd.Series:
-        """Devuelve una fila con los 5 índices base + SPI_3, priorizando el CSV."""
-        try:
-            return _buscar_en_csv(a, m)
-        except ValueError:
-            df_tmp = obtener_datos_satelitales_gee(a, m)
-            df_tmp["SPI_3"] = calcular_spi3(float(df_tmp["Lluvia_mm"].iloc[0]), m)
-            return df_tmp.iloc[0]
+        df_tmp = obtener_datos_satelitales_gee(a, m)
+        df_tmp["SPI_3"] = calcular_spi3(float(df_tmp["Lluvia_mm"].iloc[0]), m)
+        return df_tmp.iloc[0]
 
     a1, m1 = _mes_anterior(anio, mes)
     a2, m2 = _mes_anterior(a1, m1)
