@@ -825,7 +825,7 @@ def obtener_variables_gee(anio, mes):
 
     for anio_i, mes_i in fechas:
 
-        registro = extraer_indices_gee(
+        registro = obtener_datos_satelitales(
             anio_i,
             mes_i
         )
