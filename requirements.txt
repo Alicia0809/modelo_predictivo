@@ -8,3 +8,4 @@ folium
 groq
 requests
 geemap
+streamlit-folium
