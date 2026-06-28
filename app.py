@@ -811,7 +811,29 @@ else:
         "recomendaciones para operadores del embalse y comunidades."
     )
 
+def obtener_variables_gee(anio, mes):
 
+    fechas = []
+
+    for i in [2,1,0]:
+
+        fecha = pd.Timestamp(anio, mes, 1) - pd.DateOffset(months=i)
+
+        fechas.append((fecha.year, fecha.month))
+
+    datos = []
+
+    for anio_i, mes_i in fechas:
+
+        registro = extraer_indices_gee(
+            anio_i,
+            mes_i
+        )
+
+        datos.append(registro)
+
+    return pd.DataFrame(datos)
+    
 def predecir_historico(anio, mes):
 
     df = pd.read_csv("variables.csv")
