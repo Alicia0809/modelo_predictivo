@@ -219,9 +219,15 @@ def obtener_datos_satelitales(anio: int, mes: int) -> pd.DataFrame:
               .filterBounds(roi_subcuenca)
               .filterDate(inicio, fin)
               .sum()
-              .reduceRegion(reducer=ee.Reducer.mean(),
-                            geometry=roi_subcuenca, scale=5000)
               .get('precipitation'))
+    stats_lluvia = lluvia_img.reduceRegion(
+        reducer=ee.Reducer.mean(),
+        geometry=roi_subcuenca,
+        scale=5000,
+        maxPixels=1e9
+    )
+    lluvia = stats_lluvia.get('precipitation')
+    lluvia_val = lluvia.getInfo() if lluvia is not None else 0.0
 
     # Un único reduceRegion para todo el stack (más eficiente)
     stack = ee.Image.cat([ndvi, ndwi_agua, ndwi_veg, lst])
