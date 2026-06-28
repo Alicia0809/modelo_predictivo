@@ -57,8 +57,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("💧 Sistema de Alerta Temprana y Predicción de Riesgo Hídrico")
-st.caption("Subcuenca Represa El Coyolar · GEE + Sentinel-2 + Landsat 8 + CHIRPS · Modelo V13")
+st.title("Sistema de Alerta Temprana y Predicción de Riesgo Hídrico")
+st.caption("Subcuenca Represa El Coyolar · GEE + Sentinel-2 + Landsat 8 + CHIRPS")
 
 # ==============================================================================
 # 1. CLIENTES Y RECURSOS
@@ -70,7 +70,7 @@ groq_client  = Groq(api_key=GROQ_API_KEY)
 def _obtener_subcuenca_gee(lon: float, lat: float, nivel: int = 12) -> "ee.Geometry":
     """
     Devuelve la geometría HydroATLAS que contiene el punto dado.
-    Idéntico a obtener_subcuenca_automatica() del script de entrenamiento V13.
+    Idéntico a obtener_subcuenca_automatica() del script de entrenamiento.
     """
     nivel_str = str(nivel).zfill(2)
     cuencas   = ee.FeatureCollection(f'WWF/HydroATLAS/v1/Basins/level{nivel_str}')
@@ -638,12 +638,6 @@ fecha_sel = st.sidebar.selectbox(
 )
 anio_sel, mes_sel = fecha_sel
 
-usar_datos_reales = st.sidebar.checkbox(
-    "Obtener datos reales desde GEE", value=True,
-    help="Descarga índices satelitales desde Google Earth Engine. "
-         "Desactiva para usar datos de demostración (más rápido)."
-)
-
 ejecutar = st.sidebar.button("🔄 Ejecutar análisis", type="primary", use_container_width=True)
 
 st.sidebar.markdown("---")
@@ -674,20 +668,19 @@ DEMO_DATOS = {
 if ejecutar:
     with st.spinner(f"Analizando {MESES_NOMBRES[mes_sel]} {anio_sel}…"):
 
-        # ── Datos satelitales ─────────────────────────────────────────────
+        # ── Datos satelitales (SIEMPRE GEE) ─────────────────────────────
         try:
-            if usar_datos_reales:
-                df_raw = obtener_datos_satelitales(anio_sel, mes_sel)
-                df_raw["SPI_3"] = calcular_spi3_simple(
-                    float(df_raw["Lluvia_mm"].iloc[0]), mes_sel
-                )
-                st.sidebar.success("✅ Datos GEE obtenidos")
-            else:
-                demo   = DEMO_DATOS[mes_sel]
-                df_raw = pd.DataFrame([{**demo, "Anio": anio_sel, "Mes": mes_sel}])
-                st.sidebar.info("ℹ️ Usando datos de demostración")
+            df_raw = obtener_datos_satelitales(anio_sel, mes_sel)
+        
+            df_raw["SPI_3"] = calcular_spi3_simple(
+                float(df_raw["Lluvia_mm"].iloc[0]), mes_sel
+            )
+        
+            st.sidebar.success("✅ Datos obtenidos desde Google Earth Engine")
+        
         except Exception as e:
-            st.error(f"Error al obtener datos satelitales: {e}")
+            st.error("❌ Error al obtener datos desde Google Earth Engine")
+            st.exception(e)
             st.stop()
 
         # ── Feature engineering (18 features V13) ─────────────────────────
