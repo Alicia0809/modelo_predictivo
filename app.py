@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import tempfile
 import json
 import streamlit as st
@@ -8,6 +7,8 @@ import ee
 import joblib
 import folium
 from groq import Groq
+import datetime # Added for date handling
+from streamlit_folium import st_folium # Added for displaying folium maps in Streamlit
 
 # ==============================================================================
 # CONFIG STREAMLIT
@@ -88,8 +89,8 @@ def remover_nubes_scl(img):
 # ==============================================================================
 # DATOS SATELITALES
 # ==============================================================================
-def obtener_datos_mes_actual():
-    hoy = ee.Date(pd.Timestamp.now().strftime('%Y-%m-%d'))
+def obtener_datos_para_fecha(selected_date): # Modified function name and signature
+    hoy = ee.Date(selected_date.strftime('%Y-%m-%d')) # Use selected_date
     inicio = hoy.advance(-1, 'month')
 
     s2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
@@ -208,10 +209,20 @@ en español claro.
 # ==============================================================================
 # BOTÓN PRINCIPAL
 # ==============================================================================
+
+# Added date selector in the sidebar
+st.sidebar.subheader("Selección de Fecha")
+selected_date = st.sidebar.date_input(
+    "Selecciona un mes para el análisis:",
+    datetime.date.today(),
+    min_value=datetime.date(2015, 1, 1),
+    max_value=datetime.date.today()
+)
+
 if st.sidebar.button("🔄 Ejecutar Sistema Inteligente"):
 
     try:
-        df = obtener_datos_mes_actual()
+        df = obtener_datos_para_fecha(selected_date) # Call modified function
 
         df["SPI_3"] = (df["Lluvia_mm"] - 85.4) / 42.1
 
@@ -254,6 +265,12 @@ if st.sidebar.button("🔄 Ejecutar Sistema Inteligente"):
             unsafe_allow_html=True
         )
 
+        # Display probabilities as bars
+        st.markdown("### Probabilidades del Modelo")
+        prob_labels = [diccionario_riesgos[i]["nombre"] for i in range(len(diccionario_riesgos))]
+        for i, p in enumerate(prob):
+            st.progress(float(p), text=f"{prob_labels[i]}: {p*100:.2f}%")
+
         # =========================
         # IA EXPLICACIÓN
         # =========================
@@ -292,8 +309,11 @@ if st.sidebar.button("🔄 Ejecutar Sistema Inteligente"):
 
         st_folium(map_, width=1000, height=500)
 
+        # Placeholder for graphs
+        st.markdown("## 📈 Gráficos de Índices (Próximamente)")
+
     except Exception as e:
         st.error(f"Error: {e}")
 
 else:
-    st.info("Presiona el botón para ejecutar el sistema inteligente.")
+    st.info("Selecciona una fecha y presiona el botón para ejecutar el sistema inteligente.") # Updated info text
