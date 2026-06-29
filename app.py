@@ -660,11 +660,11 @@ def construir_mapa(nivel: int, datos_row: dict) -> folium.Map:
 MESES_LABELS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
 HISTORICO = {
-    'NDVI':      [0.52,0.48,0.44,0.46,0.62,0.70,0.65,0.68,0.72,0.71,0.65,0.58],
-    'NDWI_agua': [0.12,0.08,0.04,0.02,0.15,0.28,0.24,0.26,0.32,0.30,0.22,0.16],
-    'NDWI_veg':  [-0.05,-0.10,-0.16,-0.18,-0.04,0.08,0.04,0.06,0.10,0.09,0.02,-0.02],
-    'LST':       [32.4,33.8,35.6,36.2,30.1,27.4,28.8,28.2,26.8,27.0,29.5,31.2],
-    'SPI_3':     [-0.6,-0.9,-1.2,-1.5,-0.3,0.8,0.4,0.6,1.1,0.9,0.3,-0.3],
+    'NDVI':      [0.75,0.69,0.68,0.61,0.59,0.59,0.68,0.67,0.65,0.66,0.72],
+    'NDWI_agua': [0.44,0.44,0.40,-0.05,-0.07,-0.10,0.20,-0.02,0.28,0.20,0.39],
+    'NDWI_veg':  [-0.23,-0.21,-0.30,-0.30,-0.42,-0.34,-0.35,-0.38,-0.37,-0.27,-0.21],
+    'LST':       [21.17,24.15,22.96,26.99,33.37,13.84,29.65,28.06,18.98,25.35,24.36],
+    'SPI_3':     [2.13,2.20,1.07,-0.38,-1.90,-1.14,-0.84,-0.12,0.37,1.08,1.39],
 }
 COLORES_INDICES = {
     'NDVI': '#2a78d6', 'NDWI_agua': '#1baf7a',
@@ -908,7 +908,7 @@ if ejecutar:
 
     # ── Gráficos de índices ────────────────────────────────────────────────
     st.markdown(
-        "<p class='section-title'>📈 Índices satelitales — histórico mensual vs. valor analizado</p>",
+        "<p class='section-title'>📈 Índices satelitales — histórico mensual 2025 vs. valor analizado</p>",
         unsafe_allow_html=True
     )
     mi = int(datos_row.get("Mes", mes_sel)) - 1  # usa el mes de los datos reales
