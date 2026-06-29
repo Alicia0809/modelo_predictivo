@@ -686,7 +686,7 @@ def grafico_indice(key: str, valor_actual: float, mes_idx: int) -> go.Figure:
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=MESES_LABELS, y=hist, marker_color=barras,
-        name='Histórico 2015-2025',
+        name='Histórico 2025',
         hovertemplate='%{x}: %{y:.3f}<extra></extra>',
     ))
     fig.add_trace(go.Scatter(
