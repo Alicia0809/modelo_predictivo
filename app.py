@@ -630,7 +630,7 @@ def construir_mapa(nivel: int, datos_row: dict) -> folium.Map:
         f'border:1.5px solid #BBDEFB;font-family:sans-serif;min-width:215px;'
         f'box-shadow:0 2px 8px rgba(0,0,0,0.15)">'
         f'<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:#0D47A1">'
-        f'🗺️ Subcuenca El Coyolar</div>'
+        f'Subcuenca El Coyolar</div>'
         f'<div style="background:{info["color"]};color:white;padding:5px 10px;'
         f'border-radius:6px;font-size:13px;font-weight:600;margin-bottom:10px;text-align:center">'
         f'{info["emoji"]} {info["nombre"]}</div>'
@@ -665,8 +665,8 @@ HISTORICO = {
     'SPI_3':     [2.13,2.20,1.07,-0.38,-1.90,-1.14,-0.84,-0.12,0.37,1.08,1.39],
 }
 COLORES_INDICES = {
-    'NDVI': '#2a78d6', 'NDWI_agua': '#1baf7a',
-    'NDWI_veg': '#4a3aa7', 'LST': '#e34948', 'SPI_3': '#eda100',
+    'NDVI': '#43A047', 'NDWI_agua': '#1E88E5',
+    'NDWI_veg': '#26A67D', 'LST': '#E53935', 'SPI_3': '#eda100',
 }
 TITULOS_INDICES = {
     'NDVI':      'NDVI — Vegetación',
@@ -692,7 +692,7 @@ def grafico_indice(key: str, valor_actual: float, mes_idx: int) -> go.Figure:
         mode='markers',
         marker=dict(color=color, size=13, symbol='diamond',
                     line=dict(color='white', width=2)),
-        name='Valor del mes analizado',
+        name='Histórico del mes analizado',
         hovertemplate=f'Valor: {valor_actual:.3f}<extra></extra>',
     ))
     if key == 'SPI_3':
@@ -906,7 +906,7 @@ if ejecutar:
 
     # ── Gráficos de índices ────────────────────────────────────────────────
     st.markdown(
-        "<p class='section-title'>Índices satelitales — histórico mensual 2025 vs. valor analizado</p>",
+        "<p class='section-title'>Índices Satelitales — Histórico Mensual 2025</p>",
         unsafe_allow_html=True
     )
     mi = int(datos_row.get("Mes", mes_sel)) - 1  # usa el mes de los datos reales
