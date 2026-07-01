@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 app.py — Sistema de Predicción de Riesgo Hídrico
-Subcuenca Represa El Coyolar · Modelo V13 · GEE + Sentinel-2 + Landsat 8 + CHIRPS
+Subcuenca Represa El Coyolar · Modelo IA · GEE + Sentinel-2 + Landsat 8 + CHIRPS
 
 Modelo final : RandomForestClassifier (n_estimators=200, max_depth=6, random_state=42)
-Features (18): NDVI, NDWI_agua, NDWI_veg, LST, SPI_3 (base ×5)
+características (18): NDVI, NDWI_agua, NDWI_veg, LST, SPI_3 (base ×5)
                + lag1 de las 5 bases (×5)
                + lag2 y delta solo de NDVI, NDWI_agua, SPI_3 (×3 c/u)
                + mes_sin, mes_cos
@@ -76,8 +76,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("💧 Sistema de Predicción de Riesgo Hídrico")
-st.caption("Subcuenca Represa El Coyolar · GEE + Sentinel-2 + Landsat 8 + CHIRPS · Modelo V13")
+st.title("Sistema de Predicción de Riesgo Hídrico")
+st.caption("Subcuenca Represa El Coyolar · GEE + Sentinel-2 + Landsat 8 + CHIRPS · Modelo IA")
 
 # ==============================================================================
 # 1. DETERMINAR MODO SEGÚN EL MES/AÑO SOLICITADO
@@ -115,7 +115,7 @@ def determinar_modo(anio: int, mes: int) -> str:
 # Etiquetas y colores para mostrar el modo en la UI
 MODO_UI = {
     "historico": {
-        "label":   "📁 Datos históricos (variables.csv)",
+        "label":   "📁 Datos históricos",
         "color":   "#e3f2fd",
         "txt":     "#0D47A1",
         "detalle": "Los índices provienen del CSV generado durante el entrenamiento.",
@@ -124,15 +124,13 @@ MODO_UI = {
         "label":   "🛰️ Predicción mes siguiente (GEE)",
         "color":   "#e8f5e9",
         "txt":     "#1B5E20",
-        "detalle": "Se extraen los índices del mes ACTUAL desde GEE. "
-                   "El modelo predice el riesgo del mes SIGUIENTE.",
+        "detalle": "El modelo predice el riesgo del mes SIGUIENTE.",
     },
     "gee_futuro": {
-        "label":   "🔭 Predicción futura (GEE)",
+        "label":   "🔭 Datos del año actual (GEE)",
         "color":   "#fff3e0",
         "txt":     "#E65100",
-        "detalle": "Se extraen los índices del mes solicitado desde GEE. "
-                   "El modelo predice el riesgo del mes siguiente a ese.",
+        "detalle": "Se extraen los índices del mes solicitado desde GEE.",
     },
 }
 
@@ -189,7 +187,7 @@ def cargar_recursos():
     return modelo, roi, historical_df
 
 modelo, roi_subcuenca, historical_df = cargar_recursos()
-st.sidebar.success("✅ Modelo (RandomForest V13) + GEE listos")
+st.sidebar.success("Modelo de IA + GEE listos")
 
 # ==============================================================================
 # 3. CONFIGURACIÓN DE RIESGO E INTERPRETACIONES
@@ -329,9 +327,9 @@ def calcular_spi3(lluvia_mm: float, mes: int) -> float:
     return float((lluvia_mm - mu) / std) if std > 0 else 0.0
 
 # ==============================================================================
-# 6. FEATURE ENGINEERING — 18 features, orden exacto del entrenamiento V13
+# 6. FEATURE ENGINEERING — 18 características, orden exacto del entrenamiento V13
 # ==============================================================================
-FEATURES_V13 = [
+características_V13 = [
     'NDVI', 'NDWI_agua', 'NDWI_veg', 'LST', 'SPI_3',
     'NDVI_lag1', 'NDWI_agua_lag1', 'NDWI_veg_lag1', 'LST_lag1', 'SPI_3_lag1',
     'NDVI_lag2', 'NDWI_agua_lag2', 'SPI_3_lag2',
@@ -339,9 +337,9 @@ FEATURES_V13 = [
     'mes_sin', 'mes_cos',
 ]
 
-def _fila_a_features(row, lag1, lag2) -> pd.DataFrame:
+def _fila_a_características(row, lag1, lag2) -> pd.DataFrame:
     """
-    Construye el vector de 18 features dado el mes actual (row)
+    Construye el vector de 18 características dado el mes actual (row)
     y los dos meses anteriores (lag1, lag2) como Series o dict-like.
     """
     mes = int(row['Mes'])
@@ -354,7 +352,7 @@ def _fila_a_features(row, lag1, lag2) -> pd.DataFrame:
         f[f'{c}_delta'] = float(row[c]) - float(lag1[c])
     f['mes_sin'] = float(np.sin(2 * np.pi * mes / 12))
     f['mes_cos'] = float(np.cos(2 * np.pi * mes / 12))
-    return pd.DataFrame([f])[FEATURES_V13]
+    return pd.DataFrame([f])[características_V13]
 
 def _mes_anterior(anio: int, mes: int):
     """Devuelve (anio, mes) del mes anterior."""
@@ -411,7 +409,7 @@ def predecir_historico(anio: int, mes: int) -> tuple:
     lag1 = _buscar_en_csv(a1, m1)
     lag2 = _buscar_en_csv(a2, m2)
 
-    X     = _fila_a_features(fila, lag1, lag2)
+    X     = _fila_a_características(fila, lag1, lag2)
     pred  = int(modelo.predict(X)[0])
     probs = modelo.predict_proba(X)[0].tolist()
 
@@ -461,7 +459,7 @@ def predecir_mes_siguiente(anio_siguiente: int, mes_siguiente: int) -> tuple:
     lag1 = _obtener_lag(a1, m1)
     lag2 = _obtener_lag(a2, m2)
 
-    X     = _fila_a_features(fila_actual, lag1, lag2)
+    X     = _fila_a_características(fila_actual, lag1, lag2)
     pred  = int(modelo.predict(X)[0])
     probs = modelo.predict_proba(X)[0].tolist()
 
@@ -500,7 +498,7 @@ def predecir_gee_futuro(anio: int, mes: int) -> tuple:
     lag1        = _obtener_fila(a1, m1)
     lag2        = _obtener_fila(a2, m2)
 
-    X     = _fila_a_features(fila_actual, lag1, lag2)
+    X     = _fila_a_características(fila_actual, lag1, lag2)
     pred  = int(modelo.predict(X)[0])
     probs = modelo.predict_proba(X)[0].tolist()
 
@@ -513,7 +511,7 @@ def explicar_riesgo_ia(datos: dict, nivel: int, probs: list, modo: str) -> str:
     info     = RIESGO_INFO[nivel]
     prob_str = ", ".join([f"clase {i}: {p:.0%}" for i, p in enumerate(probs)])
     contexto_modo = {
-        "historico":     "Los índices corresponden a datos históricos ya registrados (variables.csv).",
+        "historico":     "Los índices corresponden a datos históricos ya registrados.",
         "gee_siguiente": "Los índices son del mes ACTUAL extraídos de GEE; el modelo predice el riesgo del MES SIGUIENTE.",
         "gee_futuro":    "Los índices son del mes solicitado extraídos de GEE; el modelo predice el riesgo del MES SIGUIENTE a ese.",
     }.get(modo, "")
@@ -531,14 +529,14 @@ Contexto: {contexto_modo}
 - SPI-3 (precipitación):         {datos.get('SPI_3', 0):.2f}
 - Lluvia acumulada:               {datos.get('Lluvia_mm', 0):.1f} mm
 
-Predicción del modelo V13 (RandomForestClassifier):
+Predicción del Modelo IA (RandomForestClassifier):
   Nivel de riesgo: {info['emoji']} {info['nombre']}
   Probabilidades: {prob_str}
 
 Redacta en español claro (máximo 200 palabras):
 1. Situación hídrica de la subcuenca
 2. Causas del nivel de riesgo predicho
-3. Recomendaciones para operadores del embalse y comunidades
+3. Recomendaciones para encargados del embalse y usuarios
 """
     resp = groq_client.chat.completions.create(
         model="meta-llama/llama-4-scout-17b-16e-instruct",
@@ -794,12 +792,12 @@ st.sidebar.markdown(
 )
 st.sidebar.caption(_mui["detalle"])
 
-ejecutar = st.sidebar.button("🔄 Ejecutar análisis", type="primary", use_container_width=True)
+ejecutar = st.sidebar.button("Ejecutar análisis", type="primary", use_container_width=True)
 
 st.sidebar.markdown("---")
 st.sidebar.info(
-    "**Modelo V13** · RandomForestClassifier  \n"
-    "18 features: base ×5, lag1 ×5, lag2/delta ×3 c/u, estacionalidad  \n"
+    "**Modelo IA** · RandomForestClassifier  \n"
+    "18 características"
     f"Rango disponible: Enero 2019 – {MESES_NOMBRES[_mes_max]} {_anio_max}"
 )
 
@@ -845,7 +843,7 @@ if ejecutar:
         titulo_riesgo  = (f"🚦 Riesgo predicho para {MESES_NOMBRES[mes_sel]} {anio_sel} "
                           f"— índices de {mes_mostrado} {anio_mostrado}")
     else:
-        titulo_riesgo  = f"🚦 Riesgo hídrico predicho — {MESES_NOMBRES[mes_sel]} {anio_sel}"
+        titulo_riesgo  = f"Nivel de Riesgo Hídrico — {MESES_NOMBRES[mes_sel]} {anio_sel}"
 
     st.markdown(f"<p class='section-title'>{titulo_riesgo}</p>", unsafe_allow_html=True)
     st.markdown(
@@ -878,7 +876,7 @@ if ejecutar:
     # ── IA + Probabilidades ────────────────────────────────────────────────
     col_ia, col_prob = st.columns([3, 2])
     with col_ia:
-        st.markdown("<p class='section-title'>🧠 Explicación IA (Groq · LLaMA 3)</p>",
+        st.markdown("<p class='section-title'>🧠 Explicación IA (Groq · LLaMA 4)</p>",
                     unsafe_allow_html=True)
         with st.spinner("Generando análisis…"):
             try:
@@ -895,7 +893,7 @@ if ejecutar:
     st.markdown("---")
 
     # ── Mapa ──────────────────────────────────────────────────────────────
-    st.markdown("<p class='section-title'>🗺️ Mapa de riesgo — Subcuenca El Coyolar</p>",
+    st.markdown("<p class='section-title'>Mapa de riesgo — Subcuenca El Coyolar</p>",
                 unsafe_allow_html=True)
     with st.spinner("Cargando mapa…"):
         try:
@@ -908,7 +906,7 @@ if ejecutar:
 
     # ── Gráficos de índices ────────────────────────────────────────────────
     st.markdown(
-        "<p class='section-title'>📈 Índices satelitales — histórico mensual 2025 vs. valor analizado</p>",
+        "<p class='section-title'>Índices satelitales — histórico mensual 2025 vs. valor analizado</p>",
         unsafe_allow_html=True
     )
     mi = int(datos_row.get("Mes", mes_sel)) - 1  # usa el mes de los datos reales
@@ -937,7 +935,7 @@ if ejecutar:
             use_container_width=True
         )
 
-    with st.expander("🔎 Ver vector de features enviado al modelo (18 features V13)"):
+    with st.expander("🔎 Ver vector de características enviado al modelo (18 características)"):
         # Reconstruir X para mostrarla (la predicción ya está hecha)
         try:
             fila_display = pd.Series(datos_row)
@@ -949,11 +947,11 @@ if ejecutar:
             else:
                 l1 = fila_display
                 l2 = fila_display
-            X_display = _fila_a_features(fila_display, l1, l2)
+            X_display = _fila_a_características(fila_display, l1, l2)
             st.dataframe(X_display.T.rename(columns={0: "valor"}).style.format("{:.5f}"),
                          use_container_width=True)
         except Exception:
-            st.info("No se pudo reconstruir el vector de features para esta vista.")
+            st.info("No se pudo reconstruir el vector de características para esta vista.")
 
 else:
     # ── Pantalla de bienvenida ─────────────────────────────────────────────
@@ -974,16 +972,16 @@ else:
     col_a, col_b, col_c = st.columns(3)
     col_a.markdown(
         "🛰️ **Datos satelitales**  \n"
-        "Sentinel-2 (NDVI, NDWI), Landsat 8 (LST) y CHIRPS (lluvia/SPI-3) "
-        "vía Google Earth Engine o variables.csv."
+        "Sentinel-2 (NDVI, NDWI), Landsat 8 (LST) y CHIRPS (Lluvia/SPI-3) "
+        "vía Google Earth Engine(GEE)"
     )
     col_b.markdown(
-        "🤖 **Modelo V13**  \n"
-        "RandomForestClassifier · 18 features · target: NRHF  \n"
+        "🤖 **Modelo IA**  \n"
+        "RandomForestClassifier · 18 características · Target: NRHF  \n"
         "Predice el nivel de riesgo hídrico del **mes siguiente** (clases 0-3)."
     )
     col_c.markdown(
         "🧠 **IA explicativa**  \n"
-        "Groq + LLaMA 3 genera un análisis en lenguaje natural con causas y "
-        "recomendaciones para operadores del embalse y comunidades."
+        "Groq + LLaMA 4 genera un análisis en lenguaje natural con causas y "
+        "recomendaciones para encargados del embalse y usuarios."
     )
