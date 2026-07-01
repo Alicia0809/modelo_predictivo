@@ -116,19 +116,19 @@ def determinar_modo(anio: int, mes: int) -> str:
 MODO_UI = {
     "historico": {
         "label":   "📁 Datos históricos",
-        "color":   "#e3f2fd",
+        "color":   "#BDDFF2",
         "txt":     "#0D47A1",
         "detalle": "Los índices provienen del CSV generado durante el entrenamiento.",
     },
     "gee_siguiente": {
         "label":   "🛰️ Predicción mes siguiente (GEE)",
-        "color":   "#e8f5e9",
+        "color":   "#BDDFF2",
         "txt":     "#1B5E20",
         "detalle": "El modelo predice el riesgo del mes SIGUIENTE.",
     },
     "gee_futuro": {
         "label":   "🔭 Datos del año actual (GEE)",
-        "color":   "#fff3e0",
+        "color":   "#BDDFF2",
         "txt":     "#E65100",
         "detalle": "Se extraen los índices del mes solicitado desde GEE.",
     },
