@@ -116,8 +116,8 @@ st.markdown(f"""
         border-bottom: 5px solid var(--amarillo-unah);
         margin-bottom: 1.2rem;
     }}
-    .header-unah img.logo-unah    {{ height: 48px; }}
-    .header-unah img.logo-carrera {{ height: 62px; }}
+    .header-unah img.logo-unah    {{ height: 80px; }}
+    .header-unah img.logo-carrera {{ height: 80px; }}
     .header-unah .titulos {{ flex: 1; }}
     .header-unah h1 {{
         color: #ffffff !important; font-size: 26px; margin: 0; line-height: 1.2;
@@ -219,13 +219,13 @@ MODO_UI = {
     "gee_siguiente": {
         "label":   "🛰️ Predicción mes siguiente (GEE)",
         "color":   "#BDDFF2",
-        "txt":     "#1B5E20",
+        "txt":     "#0D47A1",
         "detalle": "El modelo predice el riesgo del mes SIGUIENTE.",
     },
     "gee_futuro": {
         "label":   "🔭 Datos del año actual (GEE)",
         "color":   "#BDDFF2",
-        "txt":     "#E65100",
+        "txt":     "#0D47A1",
         "detalle": "Se extraen los índices del mes solicitado desde GEE.",
     },
 }
