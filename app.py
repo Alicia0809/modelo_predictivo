@@ -672,7 +672,7 @@ Redacta en español claro (máximo 200 palabras):
 # 9. MAPA FOLIUM
 # ==============================================================================
 def construir_mapa(nivel: int, datos_row: dict) -> folium.Map:
-    lat, lon  = 14.3335, -87.5090
+    lat, lon  = 14.320924, -87.510667
     info      = RIESGO_INFO[nivel]
     FILL_COLOR = {0: "#64B5F6", 1: "#FFD54F", 2: "#FF8A65", 3: "#EF9A9A"}
     FILL_OPAC  = {0: 0.35,      1: 0.40,      2: 0.42,      3: 0.45}
