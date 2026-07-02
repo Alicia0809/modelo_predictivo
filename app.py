@@ -4,9 +4,10 @@ app.py — Sistema de Predicción de Riesgo Hídrico
 Subcuenca Represa El Coyolar · Modelo IA · GEE + Sentinel-2 + Landsat 8 + CHIRPS
 
 Modelo final : RandomForestClassifier (n_estimators=200, max_depth=6, random_state=42)
-características (18): NDVI, NDWI_agua, NDWI_veg, LST, SPI_3 (base ×5)
+características (22): NDVI, NDWI_agua, NDWI_veg, LST, SPI_3 (base ×5)
                + lag1 de las 5 bases (×5)
-               + lag2 y delta solo de NDVI, NDWI_agua, SPI_3 (×3 c/u)
+               + lag2 de las 5 bases (×5)
+               + delta de las 5 bases (×5)
                + mes_sin, mes_cos
 Target       : NRHF — Nivel de Riesgo Hídrico Futuro (próximo mes, clases 0-3)
 Archivo pkl  : modelo_sequia_futuro.pkl
@@ -449,19 +450,19 @@ def calcular_spi3(lluvia_mm: float, mes: int) -> float:
     return float((lluvia_mm - mu) / std) if std > 0 else 0.0
 
 # ==============================================================================
-# 6. FEATURE ENGINEERING — 18 características, orden exacto del entrenamiento V13
+# 6. FEATURE ENGINEERING — 22 características, orden exacto del entrenamiento V13
 # ==============================================================================
 características_V13 = [
     'NDVI', 'NDWI_agua', 'NDWI_veg', 'LST', 'SPI_3',
     'NDVI_lag1', 'NDWI_agua_lag1', 'NDWI_veg_lag1', 'LST_lag1', 'SPI_3_lag1',
-    'NDVI_lag2', 'NDWI_agua_lag2', 'SPI_3_lag2',
-    'NDVI_delta', 'NDWI_agua_delta', 'SPI_3_delta',
+    'NDVI_lag2', 'NDWI_agua_lag2', 'NDWI_veg_lag2', 'LST_lag2', 'SPI_3_lag2',
+    'NDVI_delta', 'NDWI_agua_delta', 'NDWI_veg_delta', 'LST_delta', 'SPI_3_delta',
     'mes_sin', 'mes_cos',
 ]
 
 def _fila_a_características(row, lag1, lag2) -> pd.DataFrame:
     """
-    Construye el vector de 18 características dado el mes actual (row)
+    Construye el vector de 22 características dado el mes actual (row)
     y los dos meses anteriores (lag1, lag2) como Series o dict-like.
     """
     mes = int(row['Mes'])
@@ -951,7 +952,7 @@ ejecutar = st.sidebar.button("Ejecutar análisis", type="primary", use_container
 st.sidebar.markdown("---")
 st.sidebar.info(
     "**Modelo IA** · RandomForestClassifier  \n"
-    "18 características"
+    "22 características"
     f"Rango disponible: Enero 2019 – {MESES_NOMBRES[_mes_max]} {_anio_max}"
 )
 
@@ -1089,7 +1090,7 @@ if ejecutar:
             use_container_width=True
         )
 
-    with st.expander("🔎 Ver vector de características enviado al modelo (18 características)"):
+    with st.expander("🔎 Ver vector de características enviado al modelo (22 características)"):
         # Reconstruir X para mostrarla (la predicción ya está hecha)
         try:
             fila_display = pd.Series(datos_row)
@@ -1130,7 +1131,7 @@ else:
     )
     col_b.markdown(
         "🤖 **Modelo IA**  \n"
-        "RandomForestClassifier · 18 características · Target: NRHF  \n"
+        "RandomForestClassifier · 22 características · Target: NRHF  \n"
         "Predice el nivel de riesgo hídrico del **mes siguiente** (clases 0-3)."
     )
     col_c.markdown(
