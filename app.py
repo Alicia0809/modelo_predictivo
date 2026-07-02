@@ -110,21 +110,27 @@ st.markdown(f"""
 
     /* ── Encabezado institucional ─────────────────────────────────────── */
     .header-unah {{
-        display: flex; align-items: center; gap: 18px;
+        display: flex; align-items: center; justify-content: center; gap: 26px;
         background: linear-gradient(90deg, var(--azul-unah) 0%, var(--azul-unah-osc) 100%);
-        border-radius: 14px; padding: 14px 22px;
+        border-radius: 14px; padding: 20px 28px; min-height: 116px;
         border-bottom: 5px solid var(--amarillo-unah);
-        margin-bottom: 1.2rem;
+        margin-bottom: 1.2rem; overflow: visible;
     }}
-    .header-unah img.logo-unah    {{ height: 80px; }}
-    .header-unah img.logo-carrera {{ height: 80px; }}
-    .header-unah .titulos {{ flex: 1; }}
+    .header-unah img.logo-unah,
+    .header-unah img.logo-carrera {{
+        height: 80px; width: auto; max-width: none;
+        object-fit: contain; flex-shrink: 0;
+    }}
+    .header-unah .titulos {{
+        flex: 0 1 auto; text-align: center;
+    }}
     .header-unah h1 {{
-        color: #ffffff !important; font-size: 26px; margin: 0; line-height: 1.2;
+        color: #ffffff !important; font-size: 26px; margin: 0; line-height: 1.25;
+        text-align: center;
     }}
     .header-unah p {{
         color: var(--amarillo-unah) !important; font-size: 13.5px;
-        margin: 2px 0 0; font-weight: 500;
+        margin: 4px 0 0; font-weight: 500; text-align: center;
     }}
 
     /* ── Sidebar: identidad institucional ────────────────────────────── */
@@ -156,6 +162,18 @@ st.markdown(f"""
         background-color: var(--azul-unah-osc); border-color: var(--amarillo-unah);
         color: var(--amarillo-unah);
     }}
+
+    /* ── Tarjetas "Modos de predicción": en fila si hay espacio (sidebar
+       oculto) y apiladas a ancho completo si el espacio es angosto
+       (sidebar visible) — puramente vía flex-wrap, sin JS. ─────────────── */
+    .modos-grid {{
+        display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px;
+    }}
+    .modo-card {{
+        flex: 1 1 260px; padding: 10px 14px; border-radius: 8px;
+    }}
+    .modo-card b {{ display: block; margin-bottom: 2px; }}
+    .modo-card span {{ font-size: 13px; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -283,6 +301,16 @@ def cargar_recursos():
     return modelo, roi, historical_df
 
 modelo, roi_subcuenca, historical_df = cargar_recursos()
+
+if _logo_carrera_b64:
+    st.sidebar.markdown(f"""
+    <div class="sidebar-logo-wrap">
+        <img src="data:image/png;base64,{_logo_carrera_b64}">
+        <div class="carrera-txt">Ingeniería en Sistemas</div>
+        <div class="campus-txt">UNAH · Campus Comayagua</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 st.sidebar.success("Modelo de IA + GEE listos")
 
 # ==============================================================================
@@ -833,15 +861,6 @@ def grafico_probabilidades(probabilidades: list) -> go.Figure:
 # ==============================================================================
 # 11. BARRA LATERAL — CONTROLES
 # ==============================================================================
-if _logo_carrera_b64:
-    st.sidebar.markdown(f"""
-    <div class="sidebar-logo-wrap">
-        <img src="data:image/png;base64,{_logo_carrera_b64}">
-        <div class="carrera-txt">Ingeniería en Sistemas</div>
-        <div class="campus-txt">UNAH · Campus Comayagua</div>
-    </div>
-    """, unsafe_allow_html=True)
-
 st.sidebar.header("⚙️ Parámetros de análisis")
 
 MESES_NOMBRES = {
@@ -1063,14 +1082,13 @@ else:
     st.info("👈 Selecciona el mes y el año en el panel lateral, luego presiona **Ejecutar análisis**.")
 
     st.markdown("### Modos de predicción")
-    for clave, mui in MODO_UI.items():
-        st.markdown(
-            f'<div style="background:{mui["color"]};color:{mui["txt"]};'
-            f'padding:10px 14px;border-radius:8px;margin-bottom:8px">'
-            f'<b>{mui["label"]}</b><br>'
-            f'<span style="font-size:13px">{mui["detalle"]}</span></div>',
-            unsafe_allow_html=True
-        )
+    _cards_html = "".join(
+        f'<div class="modo-card" style="background:{mui["color"]};color:{mui["txt"]}">'
+        f'<b>{mui["label"]}</b>'
+        f'<span>{mui["detalle"]}</span></div>'
+        for mui in MODO_UI.values()
+    )
+    st.markdown(f'<div class="modos-grid">{_cards_html}</div>', unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("### ¿Qué analiza este sistema?")
