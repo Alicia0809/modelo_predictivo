@@ -1,1 +1,0 @@
-Espacio para las imagenes
