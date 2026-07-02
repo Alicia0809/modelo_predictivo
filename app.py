@@ -760,7 +760,7 @@ def construir_mapa(nivel: int, datos_row: dict) -> folium.Map:
     # =========================
     # FIT BOUNDS (ZOOM AUTOMÁTICO)
     # =========================
-     try:
+    try:
         bbox = roi_subcuenca.bounds().getInfo()
         coords = bbox["coordinates"][0]
 
