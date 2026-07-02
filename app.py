@@ -29,6 +29,8 @@ MODOS DE PREDICCIÓN
 """
 
 from datetime import datetime
+from pathlib import Path
+import base64
 import tempfile
 import json
 
@@ -43,41 +45,135 @@ import plotly.graph_objects as go
 from groq import Groq
 
 # ==============================================================================
-# 0. CONFIGURACIÓN DE PÁGINA
+# 0. CONFIGURACIÓN DE PÁGINA E IDENTIDAD VISUAL (UNAH · Ingeniería en Sistemas)
 # ==============================================================================
+# Paleta institucional (NO se aplica al mapa ni a las gráficas de índices/riesgo,
+# esos colores son representativos de los niveles/valores y se mantienen igual).
+AZUL_UNAH     = "#1f497d"
+AZUL_UNAH_OSC = "#163654"   # variante oscura para hover/degradados
+AMARILLO_UNAH = "#ffc000"
+
+ASSETS_DIR   = Path(__file__).parent / "assets"
+LOGO_CARRERA = ASSETS_DIR / "logo_carrera.png"        # Ingeniería en Sistemas (circular)
+LOGO_UNAH    = ASSETS_DIR / "logo_unah_campus.png"     # UNAH · Campus Comayagua (horizontal)
+
+def _img_b64(path: Path) -> str:
+    """Codifica una imagen local en base64 para incrustarla en HTML/CSS."""
+    try:
+        return base64.b64encode(path.read_bytes()).decode()
+    except Exception:
+        return ""
+
+_logo_carrera_b64 = _img_b64(LOGO_CARRERA)
+_logo_unah_b64    = _img_b64(LOGO_UNAH)
+
 st.set_page_config(
     page_title="Sistema Predictivo de Sequías · El Coyolar",
-    page_icon="💧",
+    page_icon=(str(LOGO_CARRERA) if LOGO_CARRERA.exists() else "💧"),
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-st.markdown("""
+st.markdown(f"""
 <style>
-    .block-container { padding-top: 1.5rem; }
-    .stMetric { background: #f7f6f3; border-radius: 10px; padding: .5rem .75rem; }
-    .badge-riesgo {
+    :root {{
+        --azul-unah: {AZUL_UNAH};
+        --azul-unah-osc: {AZUL_UNAH_OSC};
+        --amarillo-unah: {AMARILLO_UNAH};
+    }}
+
+    .block-container {{ padding-top: 1rem; }}
+
+    /* ── Métricas: acento azul institucional, sin tocar colores de índices ── */
+    .stMetric {{
+        background: #F2F5FA; border-radius: 10px; padding: .5rem .75rem;
+        border-left: 3px solid var(--azul-unah);
+    }}
+
+    .badge-riesgo {{
         padding: 18px 24px; border-radius: 12px; text-align: center;
         font-size: 22px; font-weight: 600; color: white; margin-bottom: 1rem;
-    }
-    .interp-tag {
+    }}
+    .interp-tag {{
         display: inline-block; padding: 3px 10px; border-radius: 5px;
         font-size: 13px; font-weight: 600; margin-right: 6px;
-    }
-    .section-title {
-        font-size: 16px; font-weight: 600; color: #1a1a19;
-        margin: 1.2rem 0 .6rem; border-left: 4px solid #2a78d6;
+    }}
+    .section-title {{
+        font-size: 16px; font-weight: 600; color: var(--azul-unah-osc);
+        margin: 1.2rem 0 .6rem; border-left: 4px solid var(--azul-unah);
         padding-left: 10px;
-    }
-    .modo-badge {
+    }}
+    .modo-badge {{
         display: inline-block; padding: 4px 12px; border-radius: 6px;
         font-size: 12px; font-weight: 600; margin-bottom: 1rem;
-    }
+    }}
+
+    /* ── Encabezado institucional ─────────────────────────────────────── */
+    .header-unah {{
+        display: flex; align-items: center; gap: 18px;
+        background: linear-gradient(90deg, var(--azul-unah) 0%, var(--azul-unah-osc) 100%);
+        border-radius: 14px; padding: 14px 22px;
+        border-bottom: 5px solid var(--amarillo-unah);
+        margin-bottom: 1.2rem;
+    }}
+    .header-unah img.logo-unah    {{ height: 48px; }}
+    .header-unah img.logo-carrera {{ height: 62px; }}
+    .header-unah .titulos {{ flex: 1; }}
+    .header-unah h1 {{
+        color: #ffffff !important; font-size: 26px; margin: 0; line-height: 1.2;
+    }}
+    .header-unah p {{
+        color: var(--amarillo-unah) !important; font-size: 13.5px;
+        margin: 2px 0 0; font-weight: 500;
+    }}
+
+    /* ── Sidebar: identidad institucional ────────────────────────────── */
+    section[data-testid="stSidebar"] {{
+        background: #F7F9FC;
+        border-right: 3px solid var(--amarillo-unah);
+    }}
+    .sidebar-logo-wrap {{
+        text-align: center; padding: 6px 0 14px;
+        border-bottom: 2px solid var(--amarillo-unah); margin-bottom: 14px;
+    }}
+    .sidebar-logo-wrap img {{ width: 92px; }}
+    .sidebar-logo-wrap .carrera-txt {{
+        color: var(--azul-unah); font-weight: 700; font-size: 13px; margin-top: 6px;
+    }}
+    .sidebar-logo-wrap .campus-txt {{
+        color: #5b6b80; font-size: 11px;
+    }}
+    section[data-testid="stSidebar"] h2, 
+    section[data-testid="stSidebar"] .stMarkdown h2 {{
+        color: var(--azul-unah);
+    }}
+
+    /* ── Botones y controles con acento institucional ────────────────── */
+    .stButton > button[kind="primary"] {{
+        background-color: var(--azul-unah); border: 1px solid var(--azul-unah);
+    }}
+    .stButton > button[kind="primary"]:hover {{
+        background-color: var(--azul-unah-osc); border-color: var(--amarillo-unah);
+        color: var(--amarillo-unah);
+    }}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("Sistema de Predicción de Riesgo Hídrico")
-st.caption("Subcuenca Represa El Coyolar · GEE + Sentinel-2 + Landsat 8 + CHIRPS · Modelo IA")
+# ── Encabezado con logos institucionales ──────────────────────────────────────
+if _logo_unah_b64 and _logo_carrera_b64:
+    st.markdown(f"""
+    <div class="header-unah">
+        <img class="logo-unah" src="data:image/png;base64,{_logo_unah_b64}">
+        <div class="titulos">
+            <h1>Sistema de Predicción de Riesgo Hídrico</h1>
+            <p>Subcuenca Represa El Coyolar · GEE + Sentinel-2 + Landsat 8 + CHIRPS · Modelo IA</p>
+        </div>
+        <img class="logo-carrera" src="data:image/png;base64,{_logo_carrera_b64}">
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.title("Sistema de Predicción de Riesgo Hídrico")
+    st.caption("Subcuenca Represa El Coyolar · GEE + Sentinel-2 + Landsat 8 + CHIRPS · Modelo IA")
 
 # ==============================================================================
 # 1. DETERMINAR MODO SEGÚN EL MES/AÑO SOLICITADO
@@ -737,6 +833,15 @@ def grafico_probabilidades(probabilidades: list) -> go.Figure:
 # ==============================================================================
 # 11. BARRA LATERAL — CONTROLES
 # ==============================================================================
+if _logo_carrera_b64:
+    st.sidebar.markdown(f"""
+    <div class="sidebar-logo-wrap">
+        <img src="data:image/png;base64,{_logo_carrera_b64}">
+        <div class="carrera-txt">Ingeniería en Sistemas</div>
+        <div class="campus-txt">UNAH · Campus Comayagua</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 st.sidebar.header("⚙️ Parámetros de análisis")
 
 MESES_NOMBRES = {
