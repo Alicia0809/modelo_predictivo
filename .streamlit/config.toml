@@ -1,0 +1,7 @@
+[theme]
+# Paleta institucional UNAH · Ingeniería en Sistemas
+primaryColor = "#1f497d"            # Azul UNAH — botones, foco, elementos activos
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F2F5FA" # Azul muy claro — sidebar y tarjetas
+textColor = "#1a1a19"
+font = "sans serif"
