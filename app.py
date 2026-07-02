@@ -469,8 +469,7 @@ def _fila_a_características(row, lag1, lag2) -> pd.DataFrame:
     f   = {}
     for c in ['NDVI', 'NDWI_agua', 'NDWI_veg', 'LST', 'SPI_3']:
         f[c]            = float(row[c])
-        f[f'{c}_lag1']  = float(lag1[c])
-    for c in ['NDVI', 'NDWI_agua', 'SPI_3']:
+        f[f'{c}_lag1']  = float(lag1[c])      
         f[f'{c}_lag2']  = float(lag2[c])
         f[f'{c}_delta'] = float(row[c]) - float(lag1[c])
     f['mes_sin'] = float(np.sin(2 * np.pi * mes / 12))
