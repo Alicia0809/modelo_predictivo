@@ -679,19 +679,24 @@ def construir_mapa(nivel: int, datos_row: dict) -> folium.Map:
 
     mapa = folium.Map(location=[lat, lon], zoom_start=12,
                       tiles=None, prefer_canvas=True)
+    
+    # SATÉLITE (BASE PRINCIPAL)
     folium.TileLayer(
-        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        attr='Esri',
-        name='Satélite',
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri Satellite",
+        name="Satélite",
         overlay=False,
         control=True
     ).add_to(mapa)
 
-
+    # RELIEVE (HILL SHADE)
     folium.TileLayer(
-        tiles='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-        attr='OpenTopoMap',
-        name='Topográfico'
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri Hillshade",
+        name="Relieve",
+        overlay=True,
+        control=True,
+        opacity=0.38
     ).add_to(mapa)
 
     ndwi_a = float(datos_row.get("NDWI_agua", 0))
@@ -724,43 +729,51 @@ def construir_mapa(nivel: int, datos_row: dict) -> folium.Map:
         roi_subcuenca.getInfo(),
         name="Subcuenca El Coyolar",
         style_function=lambda _: {
-            "fillColor": fill_color, "color": "#2196F3",
-            "weight": 2.5, "fillOpacity": fill_opac,
+            "fillColor": fill_color, "color": "#00E5FF",
+            "weight": 3, "fillOpacity": fill_opac,
         },
         highlight_function=lambda _: {
-            "fillOpacity": min(fill_opac + 0.15, 0.75),
-            "weight": 3.5, "color": "#1565C0",
+            "fillOpacity": min(fill_opac + 0.1, 0.5),
+            "weight": 34, "color": "#00B8D4",
         },
         tooltip=folium.Tooltip(tooltip_html, sticky=True),
+        overlay=True
     ).add_to(mapa)
 
     try:
         geom_rio   = obtener_geometria_rio(roi_subcuenca)
-        grosor_rio = max(1.5, min(5.5, 1.5 + ndwi_a * 14))
+        grosor_rio = max(2.5, min(6, 1.8 + ndwi_a * 15))
         folium.GeoJson(
             geom_rio, name="Embalse / Ríos",
             style_function=lambda _: {
-                "color": "#64B5F6", "weight": grosor_rio,
-                "fillColor": "#90CAF9", "fillOpacity": 0.55,
+                "color": "#1E88E5", "weight": grosor_rio,
+                "opacity": 1,
             },
             tooltip=folium.Tooltip(
                 f"<b>Embalse / Río principal</b><br>NDWI agua: {ndwi_a:.3f}",
                 sticky=False),
+            overlay=True
         ).add_to(mapa)
     except Exception:
         pass
 
-    bbox = roi_subcuenca.bounds().getInfo()
+    # =========================
+    # FIT BOUNDS (ZOOM AUTOMÁTICO)
+    # =========================
+     try:
+        bbox = roi_subcuenca.bounds().getInfo()
+        coords = bbox["coordinates"][0]
 
-    coords = bbox["coordinates"][0]
-    
-    lons = [c[0] for c in coords]
-    lats = [c[1] for c in coords]
-    
-    mapa.fit_bounds([
-        [min(lats), min(lons)],
-        [max(lats), max(lons)]
-    ])
+        lons = [c[0] for c in coords]
+        lats = [c[1] for c in coords]
+
+        mapa.fit_bounds([
+            [min(lats), min(lons)],
+            [max(lats), max(lons)]
+        ])
+    except Exception:
+        pass
+
 
     def _barra(label, valor, min_v, max_v, color, unidad=""):
         pct = max(0, min(100, int((valor - min_v) / (max_v - min_v) * 100)))
