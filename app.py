@@ -729,33 +729,16 @@ def construir_mapa(nivel: int, datos_row: dict) -> folium.Map:
         roi_subcuenca.getInfo(),
         name="Subcuenca El Coyolar",
         style_function=lambda _: {
-            "fillColor": fill_color, "color": "#00E5FF",
-            "weight": 3, "fillOpacity": fill_opac,
+            "fillColor": fill_color, "color": "#2196F3",
+            "weight": 2.5, "fillOpacity": fill_opac,
         },
         highlight_function=lambda _: {
-            "fillOpacity": min(fill_opac + 0.1, 0.5),
-            "weight": 34, "color": "#00B8D4",
+            "fillOpacity": min(fill_opac + 0.15, 0.75),
+            "weight": 3.5, "color": "#1565C0",
         },
         tooltip=folium.Tooltip(tooltip_html, sticky=True),
         overlay=True
     ).add_to(mapa)
-
-    try:
-        geom_rio   = obtener_geometria_rio(roi_subcuenca)
-        grosor_rio = max(2.5, min(6, 1.8 + ndwi_a * 15))
-        folium.GeoJson(
-            geom_rio, name="Embalse / Ríos",
-            style_function=lambda _: {
-                "color": "#1E88E5", "weight": grosor_rio,
-                "opacity": 1,
-            },
-            tooltip=folium.Tooltip(
-                f"<b>Embalse / Río principal</b><br>NDWI agua: {ndwi_a:.3f}",
-                sticky=False),
-            overlay=True
-        ).add_to(mapa)
-    except Exception:
-        pass
 
     # =========================
     # FIT BOUNDS (ZOOM AUTOMÁTICO)
