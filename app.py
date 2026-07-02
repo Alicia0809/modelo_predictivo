@@ -698,6 +698,16 @@ def construir_mapa(nivel: int, datos_row: dict) -> folium.Map:
         control=True,
         opacity=0.38
     ).add_to(mapa)
+  
+    # ETIQUETAS (NOMBRES DE LUGARES, RÍOS, CIUDADES)
+    folium.TileLayer(
+        tiles="https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri Reference Labels",
+        name="Delimitaciones",
+        overlay=True,
+        control=True,
+        opacity=1
+    ).add_to(mapa)
 
     ndwi_a = float(datos_row.get("NDWI_agua", 0))
     ndvi   = float(datos_row.get("NDVI",      0))
