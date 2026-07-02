@@ -687,14 +687,6 @@ def construir_mapa(nivel: int, datos_row: dict) -> folium.Map:
         control=True
     ).add_to(mapa)
 
-    folium.TileLayer(
-        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
-        attr='Esri',
-        name='Relieve',
-        overlay=True,
-        control=True,
-        opacity=0.45
-    ).add_to(mapa)
 
     folium.TileLayer(
         tiles='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
