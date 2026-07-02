@@ -116,8 +116,7 @@ st.markdown(f"""
         border-bottom: 5px solid var(--amarillo-unah);
         margin-bottom: 1.2rem; overflow: visible;
     }}
-    .header-unah img.logo-unah,
-    .header-unah img.logo-carrera {{
+    .header-unah img.logo-unah {{
         height: 80px; width: auto; max-width: none;
         object-fit: contain; flex-shrink: 0;
     }}
