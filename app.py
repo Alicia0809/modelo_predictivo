@@ -117,7 +117,7 @@ st.markdown(f"""
         margin-bottom: 1.2rem; overflow: visible;
     }}
     .header-unah img.logo-unah {{
-        height: 80px; width: auto; max-width: none;
+        height: 90px; width: auto; max-width: none;
         object-fit: contain; flex-shrink: 0;
     }}
     .header-unah .titulos {{
@@ -177,7 +177,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ── Encabezado con logos institucionales ──────────────────────────────────────
-if _logo_unah_b64 and _logo_carrera_b64:
+if _logo_unah_b64:
     st.markdown(f"""
     <div class="header-unah">
         <img class="logo-unah" src="data:image/png;base64,{_logo_unah_b64}">
@@ -185,7 +185,6 @@ if _logo_unah_b64 and _logo_carrera_b64:
             <h1>Sistema de Predicción de Riesgo Hídrico</h1>
             <p>Subcuenca Represa El Coyolar · GEE + Sentinel-2 + Landsat 8 + CHIRPS · Modelo IA</p>
         </div>
-        <img class="logo-carrera" src="data:image/png;base64,{_logo_carrera_b64}">
     </div>
     """, unsafe_allow_html=True)
 else:
