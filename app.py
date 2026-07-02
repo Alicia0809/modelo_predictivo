@@ -760,15 +760,15 @@ def construir_mapa(nivel: int, datos_row: dict) -> folium.Map:
 
     bbox = roi_subcuenca.bounds().getInfo()
 
-      coords = bbox["coordinates"][0]
-      
-      lons = [c[0] for c in coords]
-      lats = [c[1] for c in coords]
-      
-      mapa.fit_bounds([
-          [min(lats), min(lons)],
-          [max(lats), max(lons)]
-      ])
+    coords = bbox["coordinates"][0]
+    
+    lons = [c[0] for c in coords]
+    lats = [c[1] for c in coords]
+    
+    mapa.fit_bounds([
+        [min(lats), min(lons)],
+        [max(lats), max(lons)]
+    ])
 
     def _barra(label, valor, min_v, max_v, color, unidad=""):
         pct = max(0, min(100, int((valor - min_v) / (max_v - min_v) * 100)))
