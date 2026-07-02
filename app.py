@@ -678,7 +678,29 @@ def construir_mapa(nivel: int, datos_row: dict) -> folium.Map:
     FILL_OPAC  = {0: 0.35,      1: 0.40,      2: 0.42,      3: 0.45}
 
     mapa = folium.Map(location=[lat, lon], zoom_start=12,
-                      tiles="OpenStreetMap", prefer_canvas=True)
+                      tiles=None, prefer_canvas=True)
+    folium.TileLayer(
+        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attr='Esri',
+        name='Satélite',
+        overlay=False,
+        control=True
+    ).add_to(mapa)
+
+    folium.TileLayer(
+        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+        attr='Esri',
+        name='Relieve',
+        overlay=True,
+        control=True,
+        opacity=0.45
+    ).add_to(mapa)
+
+    folium.TileLayer(
+        tiles='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+        attr='OpenTopoMap',
+        name='Topográfico'
+    ).add_to(mapa)
 
     ndwi_a = float(datos_row.get("NDWI_agua", 0))
     ndvi   = float(datos_row.get("NDVI",      0))
