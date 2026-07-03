@@ -1119,7 +1119,7 @@ if ejecutar:
     )
 
     # ── Ejecutar el modo correspondiente ──────────────────────────────────
-    with st.spinner(f"Analizando {MESES_NOMBRES[mes_sel]} {anio_sel} [{modo}]…"):
+    with st.spinner(f"Analizando {MESES_NOMBRES[mes_sel]} {anio_sel}…"):
         try:
             if modo == "historico":
                 pred, probs, datos_row = predecir_historico(anio_sel, mes_sel)
