@@ -437,17 +437,70 @@ def obtener_geometria_rio(roi) -> dict:
     return ee.Feature(vecs.sort('area_m2', False).first()).geometry().getInfo()
 
 # ==============================================================================
-# 5. SPI-3
+# 5. SPI-3 — Standardized Precipitation Index a 3 meses (McKee et al., 1993)
 # ==============================================================================
-SPI_MEDIA_MES = {1:55,  2:38,  3:25,  4:30,  5:85,  6:125,
-                 7:110, 8:120, 9:145, 10:135, 11:90, 12:70}
-SPI_STD_MES   = {1:32,  2:28,  3:20,  4:24,  5:40,  6:45,
-                 7:42,  8:43,  9:48,  10:46,  11:38, 12:36}
-
-def calcular_spi3(lluvia_mm: float, mes: int) -> float:
-    mu  = SPI_MEDIA_MES.get(mes, 85.4)
-    std = SPI_STD_MES.get(mes, 42.1)
-    return float((lluvia_mm - mu) / std) if std > 0 else 0.0
+# Mismo método que en el entrenamiento V13 (ver transformar_a_spi en
+# entrenamiento_modelo_v13.py): la precipitación ACUMULADA de 3 meses se
+# transforma a un puntaje SPI ajustando una distribución gamma por mes
+# calendario (parámetros precalculados con CHIRPS 1981-2025 y cargados desde
+# spi3_gamma_params.json) y llevando esa probabilidad a un z-score normal.
+# NO es un z-score directo sobre la lluvia de un solo mes: eso subestima la
+# asimetría de la precipitación y rompe la equivalencia con el modelo entrenado.
+ 
+def calcular_spi3(lluvia_acumulada_3m: float, mes: int) -> float:
+    """
+    lluvia_acumulada_3m: suma de precipitación (mm) de los últimos 3 meses
+                          (mes actual + los 2 anteriores), NO la lluvia de un
+                          solo mes.
+    mes: mes calendario (1-12) del último mes del acumulado.
+    """
+    params = spi3_gamma_params.get(mes)
+    if not params:
+        return 0.0
+ 
+    q, forma, escala_gamma = params["q"], params["forma"], params["escala_gamma"]
+ 
+    if lluvia_acumulada_3m <= 0:
+        # Réplica de la lógica de transformar_a_spi para el caso lluvia=0:
+        # solo entra la masa de probabilidad de "lluvia cero" (q).
+        prob_total = np.clip(q, 1e-6, 1 - 1e-6)
+    else:
+        cdf_gamma  = gamma.cdf(lluvia_acumulada_3m, forma, loc=0, scale=escala_gamma)
+        prob_total = np.clip(q + (1 - q) * cdf_gamma, 1e-6, 1 - 1e-6)
+ 
+    return float(norm.ppf(prob_total))
+ 
+ 
+@st.cache_data(show_spinner=False)
+def _lluvia_mm_mes(anio: int, mes: int) -> float:
+    """
+    Precipitación (mm) de un mes específico. Busca primero en el CSV
+    histórico (rápido, sin llamar a GEE); si no está, hace una llamada
+    ligera a CHIRPS (sin Sentinel-2/Landsat) solo para ese mes.
+    """
+    fila = historical_df[(historical_df["Anio"] == anio) & (historical_df["Mes"] == mes)]
+    if not fila.empty and pd.notna(fila.iloc[0].get("Lluvia_mm")):
+        return float(fila.iloc[0]["Lluvia_mm"])
+ 
+    inicio = ee.Date.fromYMD(anio, mes, 1)
+    fin    = inicio.advance(1, 'month')
+    lluvia_stats = (ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
+                    .filterBounds(roi_subcuenca)
+                    .filterDate(inicio, fin)
+                    .sum()
+                    .reduceRegion(reducer=ee.Reducer.mean(),
+                                  geometry=roi_subcuenca, scale=5000, maxPixels=1e9))
+    return float(lluvia_stats.get('precipitation').getInfo() or 0.0)
+ 
+ 
+def _lluvia_acumulada_3m(anio: int, mes: int) -> float:
+    """Suma la precipitación del mes dado y los 2 meses anteriores."""
+    total = 0.0
+    a, m = anio, mes
+    for _ in range(3):
+        total += _lluvia_mm_mes(a, m)
+        a, m = _mes_anterior(a, m)
+    return total
 
 # ==============================================================================
 # 6. FEATURE ENGINEERING — 22 características, orden exacto del entrenamiento V13
