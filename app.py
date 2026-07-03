@@ -44,6 +44,7 @@ import folium
 from streamlit_folium import st_folium
 import plotly.graph_objects as go
 from groq import Groq
+from scipy.stats import gamma, norm
 
 # ==============================================================================
 # 0. CONFIGURACIÓN DE PÁGINA E IDENTIDAD VISUAL (UNAH · Ingeniería en Sistemas)
@@ -393,25 +394,80 @@ def _valor_climatologico(variable: str, mes: int) -> float:
     return float(serie.mean()) if not serie.empty else 0.0
 
 
+def _reduceRegion_seguro(imagen, variables: list, nombre_fuente: str,
+                          anio: int, mes: int, scale: int) -> dict:
+    """
+    Ejecuta reduceRegion() sobre `imagen` para las bandas listadas en
+    `variables` y devuelve {variable: valor}.
+
+    IMPORTANTE: si la colección satelital de origen (`nombre_fuente`) no
+    tiene ninguna imagen para ese mes (aún no publicada, o el ROI 100%
+    cubierto de nubes), la imagen resultante queda sin bandas y CUALQUIER
+    operación posterior sobre ella (select, reduceRegion, incluso pedir una
+    sola banda del resultado) lanza EEException — no solo para la banda
+    faltante, sino para TODAS las bandas construidas a partir de esa misma
+    fuente, porque comparten un solo grafo de cómputo. Por eso:
+      1. Se envuelve TODO el cálculo en try/except (no solo la lectura de
+         una llave del diccionario — .get(key, default) con default=None
+         NO evita el error server-side de Earth Engine).
+      2. Si falla, se usa la climatología histórica para TODAS las
+         variables de esa fuente, no solo la banda que causó el problema.
+    """
+    try:
+        stats = imagen.reduceRegion(reducer=ee.Reducer.mean(),
+                                     geometry=roi_subcuenca, scale=scale,
+                                     maxPixels=1e9).getInfo()
+    except ee.EEException:
+        stats = {}
+
+    resultado = {}
+    faltantes = []
+    for var in variables:
+        val = stats.get(var)
+        if val is None:
+            faltantes.append(var)
+            resultado[var] = _valor_climatologico(var, mes)
+        else:
+            resultado[var] = float(val)
+
+    if faltantes:
+        st.warning(
+            f"🛰️ {nombre_fuente} todavía no tiene {', '.join(faltantes)} "
+            f"disponible para {mes:02d}/{anio} (sin imágenes publicadas o "
+            f"nubosidad total en el ROI). Se usó la climatología histórica "
+            f"de ese mes como estimado.",
+            icon="ℹ️"
+        )
+    return resultado
+
+
 def _precipitacion_gee_mm(anio: int, mes: int) -> float:
     """
     Precipitación acumulada (mm) de un mes vía CHIRPS/DAILY.
 
     CHIRPS/DAILY se publica con rezago (típicamente semanas, a veces un par
     de meses) respecto al mes en curso. Si el mes solicitado todavía no
-    tiene imágenes en el catálogo, reduceRegion() devuelve un diccionario
-    sin la llave 'precipitation'. En vez de fallar, se usa como respaldo la
-    climatología histórica de ese mes calendario y se avisa al usuario.
+    tiene imágenes en el catálogo, reduceRegion() no genera la llave
+    'precipitation' y Earth Engine lanza EEException al pedirla — pasar un
+    default a .get() NO evita ese error server-side, así que se envuelve en
+    try/except. En vez de fallar, se usa como respaldo la climatología
+    histórica de ese mes calendario y se avisa al usuario.
     """
     inicio = ee.Date.fromYMD(anio, mes, 1)
     fin    = inicio.advance(1, 'month')
-    lluvia_stats = (ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
-                    .filterBounds(roi_subcuenca)
-                    .filterDate(inicio, fin)
-                    .sum()
-                    .reduceRegion(reducer=ee.Reducer.mean(),
-                                  geometry=roi_subcuenca, scale=5000, maxPixels=1e9))
-    valor = lluvia_stats.get('precipitation', None).getInfo()
+    try:
+        lluvia_stats = (ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
+                        .filterBounds(roi_subcuenca)
+                        .filterDate(inicio, fin)
+                        .sum()
+                        .reduceRegion(reducer=ee.Reducer.mean(),
+                                      geometry=roi_subcuenca, scale=5000,
+                                      maxPixels=1e9)
+                        .getInfo())
+        valor = lluvia_stats.get('precipitation')
+    except ee.EEException:
+        valor = None
+
     if valor is None:
         valor = _valor_climatologico("Lluvia_mm", mes)
         st.warning(
@@ -423,29 +479,14 @@ def _precipitacion_gee_mm(anio: int, mes: int) -> float:
     return float(valor)
 
 
-def _get_stat_seguro(stats, key: str, anio: int, mes: int) -> float:
-    """
-    Igual que stats.get(key).getInfo(), pero sin lanzar EEException si la
-    banda no existe (mes sin imágenes Sentinel-2/Landsat disponibles, p. ej.
-    nubosidad total en todo el ROI durante el mes). Recurre a la
-    climatología histórica de ese mes calendario como respaldo.
-    """
-    valor = stats.get(key, None).getInfo()
-    if valor is None:
-        valor = _valor_climatologico(key, mes)
-        st.warning(
-            f"🛰️ GEE todavía no tiene {key} disponible para {mes:02d}/{anio} "
-            f"(sin imágenes o nubosidad total). Se usó la climatología "
-            f"histórica de ese mes como estimado.",
-            icon="ℹ️"
-        )
-    return float(valor)
-
-
 def obtener_datos_satelitales_gee(anio: int, mes: int) -> pd.DataFrame:
     """
     Extrae NDVI, NDWI_agua, NDWI_veg, LST y Lluvia_mm desde GEE
     para el mes/año dado. Lógica idéntica al entrenamiento V13.
+
+    NDVI/NDWI_agua/NDWI_veg (Sentinel-2) y LST (Landsat 8) se reducen por
+    separado: si una de las dos fuentes satelitales no tiene datos para el
+    mes (colección vacía), la otra sigue funcionando con normalidad.
     """
     inicio = ee.Date.fromYMD(anio, mes, 1)
     fin    = inicio.advance(1, 'month')
@@ -466,6 +507,10 @@ def obtener_datos_satelitales_gee(anio: int, mes: int) -> pd.DataFrame:
     ndwi_agua = ndwi_base.updateMask(mascara_agua).rename('NDWI_agua')
     ndwi_veg  = ndwi_base.updateMask(mascara_veg).rename('NDWI_veg')
 
+    stack_s2 = ee.Image.cat([ndvi, ndwi_agua, ndwi_veg])
+    vals_s2  = _reduceRegion_seguro(stack_s2, ['NDVI', 'NDWI_agua', 'NDWI_veg'],
+                                     "Sentinel-2", anio, mes, scale=30)
+
     l8 = (ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
           .filterBounds(roi_subcuenca)
           .filterDate(inicio, fin)
@@ -473,17 +518,15 @@ def obtener_datos_satelitales_gee(anio: int, mes: int) -> pd.DataFrame:
           .median())
     lst = l8.select('ST_B10').multiply(0.00341802).add(149.0).subtract(273.15).rename('LST')
 
-    stack = ee.Image.cat([ndvi, ndwi_agua, ndwi_veg, lst])
-    stats = stack.reduceRegion(reducer=ee.Reducer.mean(),
-                               geometry=roi_subcuenca, scale=30)
+    vals_l8 = _reduceRegion_seguro(lst, ['LST'], "Landsat 8", anio, mes, scale=30)
 
     return pd.DataFrame([{
         "Anio":      anio,
         "Mes":       mes,
-        "NDVI":      _get_stat_seguro(stats, 'NDVI', anio, mes),
-        "NDWI_agua": _get_stat_seguro(stats, 'NDWI_agua', anio, mes),
-        "NDWI_veg":  _get_stat_seguro(stats, 'NDWI_veg', anio, mes),
-        "LST":       _get_stat_seguro(stats, 'LST', anio, mes),
+        "NDVI":      vals_s2['NDVI'],
+        "NDWI_agua": vals_s2['NDWI_agua'],
+        "NDWI_veg":  vals_s2['NDWI_veg'],
+        "LST":       vals_l8['LST'],
         "Lluvia_mm": _precipitacion_gee_mm(anio, mes),
     }])
 
@@ -643,7 +686,7 @@ def predecir_historico(anio: int, mes: int) -> tuple:
     datos_row = fila.to_dict()
     # Asegura que SPI_3 esté presente (puede ya estar en el CSV)
     if "SPI_3" not in datos_row or pd.isna(datos_row.get("SPI_3")):
-        datos_row["SPI_3"] = calcular_spi3(float(datos_row.get("Lluvia_mm", 0)), mes)
+        datos_row["SPI_3"] = calcular_spi3(_lluvia_acumulada_3m(anio, mes), mes)
 
     return pred, probs, datos_row
 
@@ -671,7 +714,7 @@ def predecir_mes_siguiente(anio_siguiente: int, mes_siguiente: int) -> tuple:
 
     # Descarga el mes actual desde GEE (t)
     df_actual = obtener_datos_satelitales_gee(anio_actual, mes_actual)
-    df_actual["SPI_3"] = calcular_spi3(float(df_actual["Lluvia_mm"].iloc[0]), mes_actual)
+    df_actual["SPI_3"] = calcular_spi3(_lluvia_acumulada_3m(anio_actual, mes_actual), mes_actual)
     fila_actual = df_actual.iloc[0]
 
     # lag1 y lag2: CSV primero, GEE como fallback
@@ -680,7 +723,7 @@ def predecir_mes_siguiente(anio_siguiente: int, mes_siguiente: int) -> tuple:
 
     def _obtener_lag(a: int, m: int) -> pd.Series:
         df_tmp = obtener_datos_satelitales_gee(a, m)
-        df_tmp["SPI_3"] = calcular_spi3(float(df_tmp["Lluvia_mm"].iloc[0]), m)
+        df_tmp["SPI_3"] = calcular_spi3(_lluvia_acumulada_3m(a, m), m)
         return df_tmp.iloc[0]
 
     lag1 = _obtener_lag(a1, m1)
@@ -715,7 +758,7 @@ def predecir_gee_futuro(anio: int, mes: int) -> tuple:
     """
     def _obtener_fila(a: int, m: int) -> pd.Series:
         df_tmp = obtener_datos_satelitales_gee(a, m)
-        df_tmp["SPI_3"] = calcular_spi3(float(df_tmp["Lluvia_mm"].iloc[0]), m)
+        df_tmp["SPI_3"] = calcular_spi3(_lluvia_acumulada_3m(a, m), m)
         return df_tmp.iloc[0]
 
     a1, m1 = _mes_anterior(anio, mes)
