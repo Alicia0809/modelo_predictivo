@@ -558,7 +558,7 @@ def _buscar_en_csv(anio: int, mes: int) -> pd.Series:
     a_cercano = int(mas_cercano["Anio"])
     m_cercano = int(mas_cercano["Mes"])
     st.warning(
-        f"⚠️ No hay datos en variables.csv para {mes}/{anio}. "
+        f"⚠️ No hay datos para {mes}/{anio}. "
         f"Se usará el mes más cercano disponible: {m_cercano}/{a_cercano}.",
         icon="ℹ️"
     )
