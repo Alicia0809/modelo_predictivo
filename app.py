@@ -277,6 +277,14 @@ def cargar_recursos():
     # Modelo entrenado
     modelo = joblib.load("modelo_sequia_futuro.pkl")
 
+    # Parámetros gamma del SPI-3, ajustados en el entrenamiento V13 con la
+    # referencia larga CHIRPS 1981-2025 (ver ajustar_distribucion_gamma_mensual
+    # en entrenamiento_modelo_v13.py). Necesarios para calcular un SPI-3
+    # "al vuelo" (modos gee_siguiente / gee_futuro) equivalente al usado
+    # durante el entrenamiento.
+    with open("spi3_gamma_params.json", "r", encoding="utf-8") as f:
+        spi3_gamma_params = {int(k): v for k, v in json.load(f).items()}
+
     # ROI — mismo punto que en el entrenamiento V13
     roi = _obtener_subcuenca_gee(-87.50904715160283, 14.333509533380646, nivel=12)
 
@@ -297,9 +305,9 @@ def cargar_recursos():
         if _c in historical_df.columns:
             historical_df[_c] = pd.to_numeric(historical_df[_c], errors="coerce")
 
-    return modelo, roi, historical_df
+    return modelo, roi, historical_df, spi3_gamma_params
 
-modelo, roi_subcuenca, historical_df = cargar_recursos()
+modelo, roi_subcuenca, historical_df, spi3_gamma_params = cargar_recursos()
 
 if _logo_carrera_b64:
     st.sidebar.markdown(f"""
@@ -374,6 +382,66 @@ def remover_nubes_landsat(img):
     mask = qa.bitwiseAnd(1 << 3).eq(0).And(qa.bitwiseAnd(1 << 4).eq(0))
     return img.updateMask(mask)
 
+def _valor_climatologico(variable: str, mes: int) -> float:
+    """
+    Promedio histórico de una variable para un mes calendario, calculado
+    sobre el CSV histórico. Se usa como respaldo cuando GEE todavía no tiene
+    datos publicados para un mes reciente (nubosidad total, o el dataset aún
+    no fue actualizado).
+    """
+    serie = historical_df.loc[historical_df["Mes"] == mes, variable].dropna()
+    return float(serie.mean()) if not serie.empty else 0.0
+
+
+def _precipitacion_gee_mm(anio: int, mes: int) -> float:
+    """
+    Precipitación acumulada (mm) de un mes vía CHIRPS/DAILY.
+
+    CHIRPS/DAILY se publica con rezago (típicamente semanas, a veces un par
+    de meses) respecto al mes en curso. Si el mes solicitado todavía no
+    tiene imágenes en el catálogo, reduceRegion() devuelve un diccionario
+    sin la llave 'precipitation'. En vez de fallar, se usa como respaldo la
+    climatología histórica de ese mes calendario y se avisa al usuario.
+    """
+    inicio = ee.Date.fromYMD(anio, mes, 1)
+    fin    = inicio.advance(1, 'month')
+    lluvia_stats = (ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
+                    .filterBounds(roi_subcuenca)
+                    .filterDate(inicio, fin)
+                    .sum()
+                    .reduceRegion(reducer=ee.Reducer.mean(),
+                                  geometry=roi_subcuenca, scale=5000, maxPixels=1e9))
+    valor = lluvia_stats.get('precipitation', None).getInfo()
+    if valor is None:
+        valor = _valor_climatologico("Lluvia_mm", mes)
+        st.warning(
+            f"🌧️ CHIRPS todavía no publica precipitación para {mes:02d}/{anio} "
+            f"(el dataset tiene rezago de publicación). Se usó la climatología "
+            f"histórica de ese mes como estimado.",
+            icon="ℹ️"
+        )
+    return float(valor)
+
+
+def _get_stat_seguro(stats, key: str, anio: int, mes: int) -> float:
+    """
+    Igual que stats.get(key).getInfo(), pero sin lanzar EEException si la
+    banda no existe (mes sin imágenes Sentinel-2/Landsat disponibles, p. ej.
+    nubosidad total en todo el ROI durante el mes). Recurre a la
+    climatología histórica de ese mes calendario como respaldo.
+    """
+    valor = stats.get(key, None).getInfo()
+    if valor is None:
+        valor = _valor_climatologico(key, mes)
+        st.warning(
+            f"🛰️ GEE todavía no tiene {key} disponible para {mes:02d}/{anio} "
+            f"(sin imágenes o nubosidad total). Se usó la climatología "
+            f"histórica de ese mes como estimado.",
+            icon="ℹ️"
+        )
+    return float(valor)
+
+
 def obtener_datos_satelitales_gee(anio: int, mes: int) -> pd.DataFrame:
     """
     Extrae NDVI, NDWI_agua, NDWI_veg, LST y Lluvia_mm desde GEE
@@ -405,14 +473,6 @@ def obtener_datos_satelitales_gee(anio: int, mes: int) -> pd.DataFrame:
           .median())
     lst = l8.select('ST_B10').multiply(0.00341802).add(149.0).subtract(273.15).rename('LST')
 
-    lluvia_stats = (ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
-                    .filterBounds(roi_subcuenca)
-                    .filterDate(inicio, fin)
-                    .sum()
-                    .reduceRegion(reducer=ee.Reducer.mean(),
-                                  geometry=roi_subcuenca, scale=5000, maxPixels=1e9))
-    lluvia_val = lluvia_stats.get('precipitation').getInfo() or 0.0
-
     stack = ee.Image.cat([ndvi, ndwi_agua, ndwi_veg, lst])
     stats = stack.reduceRegion(reducer=ee.Reducer.mean(),
                                geometry=roi_subcuenca, scale=30)
@@ -420,11 +480,11 @@ def obtener_datos_satelitales_gee(anio: int, mes: int) -> pd.DataFrame:
     return pd.DataFrame([{
         "Anio":      anio,
         "Mes":       mes,
-        "NDVI":      stats.get('NDVI').getInfo(),
-        "NDWI_agua": stats.get('NDWI_agua').getInfo(),
-        "NDWI_veg":  stats.get('NDWI_veg').getInfo(),
-        "LST":       stats.get('LST').getInfo(),
-        "Lluvia_mm": lluvia_val,
+        "NDVI":      _get_stat_seguro(stats, 'NDVI', anio, mes),
+        "NDWI_agua": _get_stat_seguro(stats, 'NDWI_agua', anio, mes),
+        "NDWI_veg":  _get_stat_seguro(stats, 'NDWI_veg', anio, mes),
+        "LST":       _get_stat_seguro(stats, 'LST', anio, mes),
+        "Lluvia_mm": _precipitacion_gee_mm(anio, mes),
     }])
 
 def obtener_geometria_rio(roi) -> dict:
@@ -475,22 +535,14 @@ def calcular_spi3(lluvia_acumulada_3m: float, mes: int) -> float:
 def _lluvia_mm_mes(anio: int, mes: int) -> float:
     """
     Precipitación (mm) de un mes específico. Busca primero en el CSV
-    histórico (rápido, sin llamar a GEE); si no está, hace una llamada
-    ligera a CHIRPS (sin Sentinel-2/Landsat) solo para ese mes.
+    histórico (rápido, sin llamar a GEE); si no está, usa _precipitacion_gee_mm
+    (CHIRPS, con respaldo climatológico si el dato aún no está publicado).
     """
     fila = historical_df[(historical_df["Anio"] == anio) & (historical_df["Mes"] == mes)]
     if not fila.empty and pd.notna(fila.iloc[0].get("Lluvia_mm")):
         return float(fila.iloc[0]["Lluvia_mm"])
- 
-    inicio = ee.Date.fromYMD(anio, mes, 1)
-    fin    = inicio.advance(1, 'month')
-    lluvia_stats = (ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
-                    .filterBounds(roi_subcuenca)
-                    .filterDate(inicio, fin)
-                    .sum()
-                    .reduceRegion(reducer=ee.Reducer.mean(),
-                                  geometry=roi_subcuenca, scale=5000, maxPixels=1e9))
-    return float(lluvia_stats.get('precipitation').getInfo() or 0.0)
+
+    return _precipitacion_gee_mm(anio, mes)
  
  
 def _lluvia_acumulada_3m(anio: int, mes: int) -> float:
