@@ -331,44 +331,89 @@ RIESGO_INFO = {
     3: {"nombre": "Sequía severa",    "emoji": "🔴", "color": "#e74c3c", "bg": "#FCEBEB", "txt": "#791F1F"},
 }
 
+ 
+# Fuente: INDICES.pdf (tablas "SEGÚN INVESTIGACIÓN" + "SEGÚN COMPORTAMIENTO EN
+# LA REGIÓN"). Para NDVI, NDWI_agua, NDWI_veg y SPI_3 el color/etiqueta
+# principal usa la clasificación de literatura (universal, con referencia
+# científica); el rango observado en esta subcuenca se muestra aparte, como
+# contexto adicional, en RANGOS_REGION — NO reemplaza la clasificación
+# científica, la complementa. LST no trae escala de investigación en la
+# fuente, así que usa directamente los 2 datos de comportamiento regional.
 INTERPRETACIONES = {
     "NDVI": [
-        (lambda v: v < 0.35,  "#FCEBEB", "#791F1F", "< 0.35",        "Vegetación muy degradada. Cobertura mínima."),
-        (lambda v: v < 0.50,  "#FAECE7", "#712B13", "0.35 – 0.50",   "Vegetación moderada a baja. Posible estrés."),
-        (lambda v: v < 0.65,  "#EAF3DE", "#27500A", "0.50 – 0.65",   "Vegetación en condición normal."),
-        (lambda v: True,       "#EAF3DE", "#27500A", "> 0.65",        "Vegetación densa y sana."),
+        # NDVI SEGÚN INVESTIGACIÓN. Los huecos entre categorías de la fuente
+        # (-0.1 a 0, 0.1 a 0.2, 0.5 a 0.6) se resolvieron usando el límite
+        # superior de cada categoría como corte hacia la siguiente.
+        (lambda v: v < -0.1, "#FCEBEB", "#791F1F", "< -0.1",     "Superficies sin vegetación."),
+        (lambda v: v < 0.1,  "#FAECE7", "#712B13", "-0.1 – 0.1", "Escasa o nula actividad fotosintética."),
+        (lambda v: v < 0.5,  "#FAEEDA", "#633806", "0.1 – 0.5",  "Vegetación escasa o con estrés."),
+        (lambda v: True,      "#EAF3DE", "#27500A", "> 0.5",      "Vegetación exuberante y sana."),
     ],
     "NDWI_agua": [
-        (lambda v: v < 0.00,  "#FCEBEB", "#791F1F", "< 0.00",        "Embalse muy bajo o seco. Situación crítica."),
-        (lambda v: v < 0.10,  "#FAECE7", "#712B13", "0.00 – 0.10",   "Nivel bajo del embalse."),
-        (lambda v: v < 0.22,  "#EAF3DE", "#27500A", "0.10 – 0.22",   "Nivel normal del embalse."),
-        (lambda v: True,       "#EAF3DE", "#27500A", "> 0.22",        "Nivel alto del embalse."),
+        # NDWI SEGÚN INVESTIGACIÓN, aplicado al índice sobre píxeles de agua.
+        (lambda v: v < -0.3, "#FCEBEB", "#791F1F", "< -0.3",     "Sequía: superficie sin agua en el embalse/río."),
+        (lambda v: v < 0.0,  "#FAECE7", "#712B13", "-0.3 – 0.0", "Sequía moderada: superficie sin agua."),
+        (lambda v: v < 0.2,  "#FAEEDA", "#633806", "0.0 – 0.2",  "Inundación o humedad en la superficie."),
+        (lambda v: True,      "#EAF3DE", "#27500A", "> 0.2",      "Superficie de agua (nivel normal a alto)."),
     ],
     "NDWI_veg": [
-        (lambda v: v < -0.15, "#FCEBEB", "#791F1F", "< -0.15",       "Vegetación muy estresada, sin agua foliar."),
-        (lambda v: v < -0.05, "#FAECE7", "#712B13", "-0.15 – -0.05", "Estrés hídrico moderado en plantas."),
-        (lambda v: v < 0.05,  "#EAF3DE", "#27500A", "-0.05 – 0.05",  "Contenido de agua foliar normal."),
-        (lambda v: True,       "#EAF3DE", "#27500A", "> 0.05",        "Vegetación con alto contenido de agua."),
+        # NDWI SEGÚN INVESTIGACIÓN, aplicado al índice sobre píxeles de vegetación.
+        (lambda v: v < -0.3, "#FCEBEB", "#791F1F", "< -0.3",     "Sequía: vegetación sin agua foliar."),
+        (lambda v: v < 0.0,  "#FAECE7", "#712B13", "-0.3 – 0.0", "Sequía moderada: estrés hídrico en la vegetación."),
+        (lambda v: v < 0.2,  "#FAEEDA", "#633806", "0.0 – 0.2",  "Humedad foliar normal."),
+        (lambda v: True,      "#EAF3DE", "#27500A", "> 0.2",      "Alto contenido de agua en la vegetación."),
     ],
     "LST": [
-        (lambda v: v > 35,    "#FCEBEB", "#791F1F", "> 35 °C",       "Temperatura muy alta. Alto estrés térmico."),
-        (lambda v: v > 32,    "#FAECE7", "#712B13", "32 – 35 °C",    "Temperatura elevada."),
-        (lambda v: v > 27,    "#EAF3DE", "#27500A", "27 – 32 °C",    "Temperatura normal."),
-        (lambda v: True,       "#EAF3DE", "#27500A", "< 27 °C",       "Temperatura fresca. Buena cobertura nubosa."),
+        # Se usa la escala
+        # de referencia general de teledetección/temperatura superficial; el
+        # rango real observado en el embalse (19–34 °C) se muestra aparte en
+        # RANGOS_REGION, como contexto.
+        (lambda v: v > 35, "#FCEBEB", "#791F1F", "> 35 °C",    "Temperatura muy alta. Alto estrés térmico."),
+        (lambda v: v > 32, "#FAECE7", "#712B13", "32 – 35 °C", "Temperatura elevada."),
+        (lambda v: v > 27, "#EAF3DE", "#27500A", "27 – 32 °C", "Temperatura normal."),
+        (lambda v: True,    "#EAF3DE", "#27500A", "< 27 °C",   "Temperatura fresca. Buena cobertura nubosa."),
     ],
     "SPI_3": [
-        (lambda v: v < -1.5,  "#FCEBEB", "#791F1F", "< -1.5",        "Sequía severa. Precipitación muy por debajo del normal."),
-        (lambda v: v < -1.0,  "#FAECE7", "#712B13", "-1.5 – -1.0",   "Sequía moderada. Déficit hídrico significativo."),
-        (lambda v: v < 0.5,   "#EAF3DE", "#27500A", "-1.0 – 0.5",    "Condición normal a húmeda."),
-        (lambda v: True,       "#EAF3DE", "#27500A", "> 0.5",         "Exceso de lluvia sobre el promedio histórico."),
+        # Escala completa de McKee et al. (1993), sin colapsar categorías.
+        (lambda v: v <= -2.0,  "#FCEBEB", "#791F1F", "≤ -2.0",       "Extremadamente seco."),
+        (lambda v: v <= -1.5,  "#FCEBEB", "#791F1F", "-1.99 – -1.5", "Severamente seco."),
+        (lambda v: v <= -1.0,  "#FAECE7", "#712B13", "-1.49 – -1.0", "Moderadamente seco."),
+        (lambda v: v <= 0.99,  "#EAF3DE", "#27500A", "-0.99 – 0.99", "Normal o aproximadamente normal."),
+        (lambda v: v <= 1.49,  "#EAF3DE", "#27500A", "1.0 – 1.49",   "Moderadamente húmedo."),
+        (lambda v: v <= 1.99,  "#EAF3DE", "#27500A", "1.5 – 1.99",   "Muy húmedo."),
+        (lambda v: True,        "#EAF3DE", "#27500A", "≥ 2.0",        "Extremadamente húmedo."),
     ],
 }
-
+ 
+# Rango mínimo–máximo observado en esta subcuenca (INDICES.pdf, columnas
+# "SEGÚN COMPORTAMIENTO EN LA REGIÓN"). Se muestra como contexto adicional
+# junto a la clasificación de literatura — no reemplaza esa clasificación.
+RANGOS_REGION = {
+    "NDVI":      (0.320033839,  0.75183612),
+    "NDWI_agua": (-0.238555607, 0.550581758),
+    "NDWI_veg":  (-0.488520388, -0.001029336),
+    "SPI_3":     (-2.36813837,  4.010941759),
+    "LST":       (19.0, 34.0),
+}
+ 
 def obtener_interpretacion(key, valor):
     for cond, bg, txt, rango, desc in INTERPRETACIONES[key]:
         if cond(valor):
             return bg, txt, rango, desc
     return "#EAF3DE", "#27500A", "—", "—"
+ 
+def obtener_rango_region(key: str):
+    """
+    Texto de contexto con el rango histórico observado en esta subcuenca
+    (independiente de la clasificación de literatura). Devuelve None si la
+    variable no tiene ese contraste (caso de LST).
+    """
+    par = RANGOS_REGION.get(key)
+    if par is None:
+        return None
+    minimo, maximo = par
+    return f"Rango observado en esta cuenca: {minimo:.2f} – {maximo:.2f}"
+ 
 
 # ==============================================================================
 # 4. EXTRACCIÓN GEE
