@@ -1212,12 +1212,15 @@ if ejecutar:
     cols_i = st.columns(5)
     for col, key in zip(cols_i, ["NDVI","NDWI_agua","NDWI_veg","LST","SPI_3"]):
         bg, txt, rango, desc = obtener_interpretacion(key, float(datos_row.get(key, 0)))
-        col.markdown(
+        rango_region = obtener_rango_region(key)
+        html = (
             f"<span class='interp-tag' style='background:{bg};color:{txt}'>{rango}</span>"
-            f"<span style='font-size:11px;color:#52514e'>{desc}</span>",
-            unsafe_allow_html=True
+            f"<span style='font-size:11px;color:#52514e'>{desc}</span>"
         )
-
+        if rango_region:
+            html += f"<br><span style='font-size:10px;color:#8a8a86'>{rango_region}</span>"
+        col.markdown(html, unsafe_allow_html=True)
+ 
     st.markdown("---")
 
     # ── IA + Probabilidades ────────────────────────────────────────────────
