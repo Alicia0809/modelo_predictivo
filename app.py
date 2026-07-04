@@ -86,12 +86,13 @@ st.markdown(f"""
 
     .block-container {{ padding-top: 1rem; }}
 
+
     /* ── Métricas: acento azul institucional, sin tocar colores de índices ── */
     .stMetric {{
         background: #F2F5FA; border-radius: 10px; padding: .5rem .75rem;
         border-left: 3px solid var(--azul-unah);
     }}
-
+ 
     .badge-riesgo {{
         padding: 18px 24px; border-radius: 12px; text-align: center;
         font-size: 22px; font-weight: 600; color: white; margin-bottom: 1rem;
@@ -99,6 +100,34 @@ st.markdown(f"""
     .interp-tag {{
         display: inline-block; padding: 3px 10px; border-radius: 5px;
         font-size: 13px; font-weight: 600; margin-right: 6px;
+    }}
+ 
+    /* ── Tarjeta unificada por variable (valor + interpretación) ────────── */
+    .var-card {{
+        background: #FFFFFF; border: 1px solid #E7E7E4; border-radius: 12px;
+        padding: 14px 16px; height: 100%;
+        display: flex; flex-direction: column; gap: 8px;
+    }}
+    .var-card-label {{
+        font-size: 12px; font-weight: 700; color: #6b6a66;
+        text-transform: uppercase; letter-spacing: .03em;
+    }}
+    .var-card-value {{
+        font-size: 26px; font-weight: 700; color: #1f1e1c; line-height: 1.1;
+    }}
+    .var-card-tag {{
+        display: inline-block; padding: 3px 10px; border-radius: 5px;
+        font-size: 12px; font-weight: 700; white-space: nowrap; align-self: flex-start;
+    }}
+    .var-card-desc {{
+        font-size: 12.5px; color: #3d3c39; line-height: 1.4;
+    }}
+    .var-card-region {{
+        font-size: 11px; color: #8a8a86; line-height: 1.4;
+        border-top: 1px dashed #E7E7E4; padding-top: 7px; margin-top: auto;
+    }}
+    .var-card-region b {{
+        color: #6b6a66; white-space: nowrap;
     }}
     .section-title {{
         font-size: 16px; font-weight: 600; color: var(--azul-unah-osc);
@@ -393,7 +422,7 @@ RANGOS_REGION = {
     "NDWI_agua": (-0.238555607, 0.550581758),
     "NDWI_veg":  (-0.488520388, -0.001029336),
     "SPI_3":     (-2.36813837,  4.010941759),
-    "LST":       (19.0, 34.0),
+    "LST":       (18.978686389, 34.414010526),
 }
  
 def obtener_interpretacion(key, valor):
@@ -1143,8 +1172,8 @@ ejecutar = st.sidebar.button("Ejecutar análisis", type="primary", use_container
 
 st.sidebar.markdown("---")
 st.sidebar.info(
-    "**Modelo IA** · RandomForestClassifier  \n"
-    "22 características"
+    "**Modelo IA** · RandomForestClassifier \n"
+    "22 características \n"
     f"Rango disponible: Enero 2019 – {MESES_NOMBRES[_mes_max]} {_anio_max}"
 )
 
