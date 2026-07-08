@@ -1247,25 +1247,34 @@ if ejecutar:
         unsafe_allow_html=True
     )
 
-    # ── Métricas ──────────────────────────────────────────────────────────
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("NDVI",      f"{float(datos_row.get('NDVI', 0)):.3f}")
-    c2.metric("NDWI agua", f"{float(datos_row.get('NDWI_agua', 0)):.3f}")
-    c3.metric("NDWI veg",  f"{float(datos_row.get('NDWI_veg', 0)):.3f}")
-    c4.metric("LST",       f"{float(datos_row.get('LST', 0)):.1f} °C")
-    c5.metric("SPI-3",     f"{float(datos_row.get('SPI_3', 0)):.2f}")
-
-    # ── Interpretaciones ──────────────────────────────────────────────────
-    cols_i = st.columns(5)
-    for col, key in zip(cols_i, ["NDVI","NDWI_agua","NDWI_veg","LST","SPI_3"]):
-        bg, txt, rango, desc = obtener_interpretacion(key, float(datos_row.get(key, 0)))
+# ── Métricas + interpretaciones (una sola tarjeta por variable) ────────
+    VARIABLES_PANEL = [
+        ("NDVI",      "NDVI",      lambda v: f"{v:.3f}"),
+        ("NDWI_agua", "NDWI agua", lambda v: f"{v:.3f}"),
+        ("NDWI_veg",  "NDWI veg",  lambda v: f"{v:.3f}"),
+        ("LST",       "LST",       lambda v: f"{v:.1f} °C"),
+        ("SPI_3",     "SPI-3",     lambda v: f"{v:.2f}"),
+    ]
+    cols_var = st.columns(5)
+    for col, (key, etiqueta, fmt) in zip(cols_var, VARIABLES_PANEL):
+        valor = float(datos_row.get(key, 0))
+        bg, txt, rango, desc = obtener_interpretacion(key, valor)
         rango_region = obtener_rango_region(key)
+
         html = (
-            f"<span class='interp-tag' style='background:{bg};color:{txt}'>{rango}</span>"
-            f"<span style='font-size:11px;color:#52514e'>{desc}</span>"
+            "<div class='var-card'>"
+            f"<div class='var-card-label'>{etiqueta}</div>"
+            f"<div class='var-card-value'>{fmt(valor)}</div>"
+            f"<span class='var-card-tag' style='background:{bg};color:{txt}'>{rango}</span>"
+            f"<div class='var-card-desc'>{desc}</div>"
         )
         if rango_region:
-            html += f"<br><span style='font-size:10px;color:#8a8a86'>{rango_region}</span>"
+            etiqueta_txt, valores_txt = rango_region.split(":")
+            html += (
+                f"<div class='var-card-region'>{etiqueta_txt.strip()}: "
+                f"<b>{valores_txt.strip()}</b></div>"
+            )
+        html += "</div>"
         col.markdown(html, unsafe_allow_html=True)
  
     st.markdown("---")
@@ -1349,6 +1358,35 @@ if ejecutar:
                          use_container_width=True)
         except Exception:
             st.info("No se pudo reconstruir el vector de características para esta vista.")
+
+    with st.expander("⏱️ Diagnóstico de tiempos de respuesta (prueba de eficiencia)"):
+            st.caption(
+                "Cada vez que ejecutas un análisis, el tiempo de respuesta se agrega a esta "
+                "tabla (solo dura mientras esta pestaña del navegador esté abierta). Corre "
+                "varios meses en cada modo (histórico / mes siguiente / mes futuro) y "
+                "descarga el CSV para construir la tabla de tiempos con datos reales."
+            )
+            df_tiempos = pd.DataFrame(st.session_state.get("tiempos_respuesta", []))
+            if df_tiempos.empty:
+                st.info("Todavía no hay mediciones en esta sesión.")
+            else:
+                st.dataframe(df_tiempos, use_container_width=True, hide_index=True)
+    
+                resumen = (
+                    df_tiempos.groupby("modo")["segundos"]
+                    .agg(n="count", promedio="mean", minimo="min", maximo="max")
+                    .round(3)
+                    .reset_index()
+                )
+                st.markdown("**Resumen por modo**")
+                st.dataframe(resumen, use_container_width=True, hide_index=True)
+    
+                st.download_button(
+                    "⬇️ Descargar mediciones (CSV)",
+                    data=df_tiempos.to_csv(index=False).encode("utf-8"),
+                    file_name="tiempos_respuesta_app.csv",
+                    mime="text/csv",
+                )
 
 else:
     # ── Pantalla de bienvenida ─────────────────────────────────────────────
