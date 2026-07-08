@@ -34,6 +34,7 @@ from pathlib import Path
 import base64
 import tempfile
 import json
+import time
 
 import streamlit as st
 import pandas as pd
@@ -1193,8 +1194,10 @@ if ejecutar:
     )
 
     # ── Ejecutar el modo correspondiente ──────────────────────────────────
-    with st.spinner(f"Analizando {MESES_NOMBRES[mes_sel]} {anio_sel}…"):
+   with st.spinner(f"Analizando {MESES_NOMBRES[mes_sel]} {anio_sel} [{modo}]…"):
         try:
+            _t0 = time.perf_counter()
+          
             if modo == "historico":
                 pred, probs, datos_row = predecir_historico(anio_sel, mes_sel)
 
@@ -1203,6 +1206,21 @@ if ejecutar:
 
             else:  # gee_futuro
                 pred, probs, datos_row = predecir_gee_futuro(anio_sel, mes_sel)
+
+            _elapsed = time.perf_counter() - _t0
+   
+            # Registro de tiempos de respuesta (prueba de eficiencia).
+            # Se acumula en la sesión: corre la app varias veces alternando modos/
+            # meses y descarga el CSV desde el panel "Diagnóstico de rendimiento"
+            # más abajo para construir la tabla de tiempos con datos reales.
+            st.session_state.setdefault("tiempos_respuesta", [])
+            st.session_state["tiempos_respuesta"].append({
+                "timestamp":  datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "modo":       modo,
+                "anio":       anio_sel,
+                "mes":        mes_sel,
+                "segundos":   round(_elapsed, 3),
+            })
 
         except Exception as e:
             st.error("❌ Error durante el análisis.")
