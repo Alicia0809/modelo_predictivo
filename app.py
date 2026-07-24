@@ -147,6 +147,9 @@ st.markdown(f"""
         border-radius: 14px; padding: 20px 28px; min-height: 116px;
         border-bottom: 5px solid var(--amarillo-unah);
         margin-bottom: 1.2rem; overflow: visible;
+        position: sticky;
+        top: 0;
+        z-index: 999;
     }}
     .header-unah img.logo-unah {{
         height: 90px; width: auto; max-width: none;
