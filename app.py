@@ -887,7 +887,7 @@ Redacta en español claro (máximo 200 palabras):
 3. Recomendaciones para encargados del embalse y usuarios
 """
     resp = groq_client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3,
         max_tokens=400,
