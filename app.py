@@ -744,22 +744,26 @@ def _buscar_en_csv(anio: int, mes: int) -> pd.Series:
 def predecir_historico(anio: int, mes: int) -> tuple:
     """
     MODO HISTÓRICO (Ene 2019 – Dic 2025)
-    Obtiene la fila del mes solicitado y sus dos anteriores desde variables.csv.
-    No llama a GEE.
+    Estos meses ya ocurrieron: el nivel de riesgo mostrado es el valor
+    REAL ya registrado en la columna NRH de variables.csv, no una predicción
+    del modelo. Por eso este modo NO llama a modelo.predict()/predict_proba()
+    — no tiene sentido "predecir" un riesgo que ya es un hecho conocido, y
+    por la misma razón no existen probabilidades que mostrar en este modo.
 
     Retorna: (pred, probs, datos_row_dict)
+        pred  → valor de NRH ya registrado para ese mes (no una predicción)
+        probs → None (no aplica: no se ejecuta el modelo en este modo)
         datos_row_dict → índices del mes solicitado (para mostrar en UI)
     """
-    fila  = _buscar_en_csv(anio, mes)
-    a1, m1 = _mes_anterior(anio, mes)
-    a2, m2 = _mes_anterior(a1, m1)
+    fila = _buscar_en_csv(anio, mes)
 
-    lag1 = _buscar_en_csv(a1, m1)
-    lag2 = _buscar_en_csv(a2, m2)
-
-    X     = _fila_a_características(fila, lag1, lag2)
-    pred  = int(modelo.predict(X)[0])
-    probs = modelo.predict_proba(X)[0].tolist()
+    if "NRH" not in fila or pd.isna(fila.get("NRH")):
+        raise ValueError(
+            f"La columna 'NRH' no tiene un valor registrado para {mes}/{anio} "
+            f"en variables.csv."
+        )
+    pred  = int(fila["NRH"])
+    probs = None
 
     datos_row = fila.to_dict()
     # Asegura que SPI_3 esté presente (puede ya estar en el CSV)
@@ -856,8 +860,17 @@ def predecir_gee_futuro(anio: int, mes: int) -> tuple:
 # 8. EXPLICACIÓN IA
 # ==============================================================================
 def explicar_riesgo_ia(datos: dict, nivel: int, probs: list, modo: str) -> str:
-    info     = RIESGO_INFO[nivel]
-    prob_str = ", ".join([f"clase {i}: {p:.0%}" for i, p in enumerate(probs)])
+    info = RIESGO_INFO[nivel]
+    if probs is None:
+        # Modo histórico: NRH es un hecho ya registrado, no hay probabilidades
+        # de un modelo que "predijo" nada.
+        prediccion_texto = f"Nivel de riesgo (dato histórico registrado): {info['emoji']} {info['nombre']}"
+    else:
+        prob_str = ", ".join([f"clase {i}: {p:.0%}" for i, p in enumerate(probs)])
+        prediccion_texto = (
+            f"Nivel de riesgo (predicción del modelo): {info['emoji']} {info['nombre']}\n"
+            f"  Probabilidades: {prob_str}"
+        )
     contexto_modo = {
         "historico":     "Los índices corresponden a datos históricos ya registrados.",
         "gee_siguiente": "Los índices son del mes ACTUAL extraídos de GEE; el modelo predice el riesgo del MES SIGUIENTE.",
@@ -877,9 +890,7 @@ Contexto: {contexto_modo}
 - SPI-3 (precipitación):         {datos.get('SPI_3', 0):.2f}
 - Lluvia acumulada:               {datos.get('Lluvia_mm', 0):.1f} mm
 
-Predicción del Modelo IA (RandomForestClassifier):
-  Nivel de riesgo: {info['emoji']} {info['nombre']}
-  Probabilidades: {prob_str}
+{prediccion_texto}
 
 Redacta en español claro (máximo 200 palabras):
 1. Situación hídrica de la subcuenca
@@ -1243,10 +1254,16 @@ if ejecutar:
         titulo_riesgo  = f"Nivel de Riesgo Hídrico — {MESES_NOMBRES[mes_sel]} {anio_sel}"
 
     st.markdown(f"<p class='section-title'>{titulo_riesgo}</p>", unsafe_allow_html=True)
+    if probs is None:
+        # Modo histórico: NRH es un dato ya registrado, no una predicción con
+        # probabilidad asociada.
+        badge_extra = "Dato histórico registrado"
+    else:
+        badge_extra = f"Probabilidad: {round(probs[pred]*100)}%"
     st.markdown(
         f'<div class="badge-riesgo" style="background:{info["color"]}">'
         f'{info["emoji"]} {info["nombre"]} &nbsp;·&nbsp; '
-        f'Probabilidad: {round(probs[pred]*100)}%</div>',
+        f'{badge_extra}</div>',
         unsafe_allow_html=True
     )
 
@@ -1283,8 +1300,11 @@ if ejecutar:
     st.markdown("---")
 
     # ── IA + Probabilidades ────────────────────────────────────────────────
-    col_ia, col_prob = st.columns([3, 2])
-    with col_ia:
+    # La distribución de probabilidades solo tiene sentido cuando el modelo
+    # realmente predijo algo (gee_siguiente / gee_futuro). En modo histórico
+    # el riesgo es un dato ya registrado (NRH), sin probabilidades asociadas,
+    # así que esa sección no se muestra y la explicación de IA ocupa todo el ancho.
+    if probs is None:
         st.markdown("<p class='section-title'>🧠 Explicación IA (Groq · LLaMA 4)</p>",
                     unsafe_allow_html=True)
         with st.spinner("Generando análisis…"):
@@ -1293,11 +1313,22 @@ if ejecutar:
                 st.info(explicacion)
             except Exception as e:
                 st.warning(f"No se pudo generar la explicación IA: {e}")
+    else:
+        col_ia, col_prob = st.columns([3, 2])
+        with col_ia:
+            st.markdown("<p class='section-title'>🧠 Explicación IA (Groq · LLaMA 4)</p>",
+                        unsafe_allow_html=True)
+            with st.spinner("Generando análisis…"):
+                try:
+                    explicacion = explicar_riesgo_ia(datos_row, pred, probs, modo)
+                    st.info(explicacion)
+                except Exception as e:
+                    st.warning(f"No se pudo generar la explicación IA: {e}")
 
-    with col_prob:
-        st.markdown("<p class='section-title'>📊 Distribución de probabilidades</p>",
-                    unsafe_allow_html=True)
-        st.plotly_chart(grafico_probabilidades(probs), use_container_width=True)
+        with col_prob:
+            st.markdown("<p class='section-title'>📊 Distribución de probabilidades</p>",
+                        unsafe_allow_html=True)
+            st.plotly_chart(grafico_probabilidades(probs), use_container_width=True)
 
     st.markdown("---")
 
